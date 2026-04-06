@@ -1,0 +1,17 @@
+Third-party software and licenses
+==================================
+
+1) ite8291r3-ctl (ITE 8291 rev 0.03 keyboard RGB)
+   - Upstream: https://github.com/pobrn/ite8291r3-ctl
+   - Copyright (C) Barnabás Pőcze and contributors
+   - License: GNU General Public License v2.0
+   - USB protocol implementation: src/avell_storm_rgb/infrastructure/usb/ite8291_usb.py
+     (derived; see file header).
+
+2) ite8233-ledbar / ITE 8233 LED bar (MIT-style vendor implementations)
+   - MIT License (see upstream READMEs; include copyright line from the original
+     project when you have the exact holder text from that repository).
+   - LED bar protocol and color tables: src/avell_storm_rgb/infrastructure/usb/ite8233_usb.py
+     and src/avell_storm_rgb/domain/ledbar_colors.py (derived; see SPDX headers).
+
+This file is informational; the full GPL-2.0 text is in LICENSE.

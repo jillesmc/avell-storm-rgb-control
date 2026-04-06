@@ -1,0 +1,5 @@
+module pages
+DevicesPage 1.0 DevicesPage.qml
+KeyboardPage 1.0 KeyboardPage.qml
+LedBarPage 1.0 LedBarPage.qml
+AppAboutPage 1.0 AppAboutPage.qml

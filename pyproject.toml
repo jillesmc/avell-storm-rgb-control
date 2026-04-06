@@ -1,0 +1,50 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "avell-storm-rgb"
+version = "0.1.0"
+description = "Unified control for ITE 8291 keyboard RGB and ITE 8233 LED bar (USB)"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "GPL-2.0-or-later"
+authors = [{ name = "Avell Storm RGB contributors" }]
+keywords = ["ITE", "USB", "RGB", "keyboard", "backlight", "LED"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Intended Audience :: End Users/Desktop",
+  "License :: OSI Approved :: GNU General Public License v2 or later (GPLv2+)",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: Python :: 3",
+  "Topic :: System :: Hardware :: Hardware Drivers",
+]
+
+dependencies = ["pyusb>=1.2.1"]
+
+[project.optional-dependencies]
+# Desktop GUI: also needs Kirigami 6 QML from the OS (e.g. Arch kirigami, KDE Flatpak runtime).
+# PyPI wheels do not ship org.kde.kirigami; set QML_IMPORT_PATH if Qt's path is nonstandard.
+gui = ["PySide6>=6.6"]
+screen = ["python-xlib>=0.33", "Pillow>=10.0.0"]
+
+[project.scripts]
+avell-storm-rgb = "avell_storm_rgb.adapters.cli.main:main"
+avell-storm-rgb-gui = "app.main:main"
+
+[tool.hatch.build]
+sources = ["src"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/avell_storm_rgb", "src/app", "README.md", "LICENSE", "NOTICE", "docs", "assets"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src", "tests"]
+markers = [
+  "hardware: tests requiring real USB devices (skipped in default CI)",
+]
+
+[dependency-groups]
+dev = ["pytest>=8.0.0"]

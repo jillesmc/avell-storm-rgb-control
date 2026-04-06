@@ -1,0 +1,1 @@
+"""QObjects exposed to QML."""
