@@ -6,7 +6,7 @@ from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, TypeVar
 
-from PySide6.QtCore import QObject, Signal, Slot
+from PySide6.QtCore import QObject, Signal
 
 from app.logutil import log_usb_failure
 
@@ -36,6 +36,6 @@ class UsbWorker(QObject):
 
         self._pool.submit(run)
 
-    @Slot()
-    def shutdown(self) -> None:
-        self._pool.shutdown(wait=False, cancel_futures=False)
+    def shutdown(self, wait: bool = False) -> None:
+        """Stop accepting new work. Use wait=True in tests so the next UsbWorker gets a clean thread."""
+        self._pool.shutdown(wait=wait, cancel_futures=False)

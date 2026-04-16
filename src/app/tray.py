@@ -49,6 +49,7 @@ class TrayController(QObject):
                 if p.is_file():
                     return QIcon(str(p))
         for theme in (
+            "filename-moodbar",
             "adjustrgb",
             "input-keyboard",
             "preferences-desktop-keyboard-symbolic",

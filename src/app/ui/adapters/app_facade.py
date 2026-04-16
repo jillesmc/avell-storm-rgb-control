@@ -163,6 +163,14 @@ class AppFacade(QObject):
         return sorted(SOLID_COLOR_NAMES.keys())
 
     @Property(list, constant=True)
+    def solidColorEntries(self) -> list[dict[str, int | str]]:
+        """For QML named-color grid: {name, r, g, b}."""
+        return [
+            {"name": k, "r": v[0], "g": v[1], "b": v[2]}
+            for k, v in sorted(SOLID_COLOR_NAMES.items())
+        ]
+
+    @Property(list, constant=True)
     def ledEffectNames(self) -> list[str]:
         return sorted(LED_BAR_EFFECT_CODES.keys())
 
@@ -171,6 +179,15 @@ class AppFacade(QObject):
         from avell_storm_rgb.domain import ledbar_colors
 
         return sorted(ledbar_colors.COLORS.keys())
+
+    @Property(list, constant=True)
+    def ledNamedColorEntries(self) -> list[dict[str, int | str]]:
+        from avell_storm_rgb.domain import ledbar_colors
+
+        return [
+            {"name": k, "r": v[0], "g": v[1], "b": v[2]}
+            for k, v in sorted(ledbar_colors.COLORS.items())
+        ]
 
     @Property(list, constant=True)
     def ledPalettePresets(self) -> list[str]:
@@ -203,6 +220,28 @@ class AppFacade(QObject):
     @Slot()
     def refreshDevices(self) -> None:
         self._devices.refresh()
+
+    @Slot(str)
+    def connectFirstDiscovered(self, kind: str) -> None:
+        """Connect the first USB row of this kind (scan order), like sidebar toggle ON."""
+        if kind not in ("keyboard", "led_bar"):
+            return
+        root = QModelIndex()
+        n = self._devices.rowCount(root)
+        for row in range(n):
+            idx = self._devices.index(row, 0)
+            k = self._devices.data(idx, DeviceListModel.KindRole)
+            if k != kind:
+                continue
+            bus = self._devices.data(idx, DeviceListModel.BusRole)
+            addr = self._devices.data(idx, DeviceListModel.AddrRole)
+            if bus is None or addr is None:
+                continue
+            ibus, iaddr = int(bus), int(addr)
+            if self.isDeviceOpenInApp(kind, ibus, iaddr):
+                return
+            self.connectDevice(kind, ibus, iaddr)
+            return
 
     @Slot()
     def tryAutoConnectDiscoveredDevices(self) -> None:

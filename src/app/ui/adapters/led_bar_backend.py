@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from PySide6.QtCore import Property, QObject, Signal, Slot
+from typing import Any
+
+from PySide6.QtCore import Property, QObject, Qt, Signal, Slot
 
 from avell_storm_rgb.domain.ledbar_colors import COLORS as LED_NAMED_COLORS
 from avell_storm_rgb.domain.ledbar_colors import PALETTES as LED_PALETTES
@@ -14,6 +16,8 @@ from app.core.usb_worker import UsbWorker
 class LedBarBackend(QObject):
     connectedChanged = Signal()
     infoChanged = Signal()
+    replayModeUpdate = Signal(object)
+    replayPowerOnAvailableChanged = Signal()
 
     def __init__(self, worker: UsbWorker, parent: QObject | None = None) -> None:
         super().__init__(parent)
@@ -22,6 +26,11 @@ class LedBarBackend(QObject):
         self._info = ""
         self._bus: int = -1
         self._addr: int = -1
+        self._last_replay: dict[str, Any] | None = None
+
+        self.replayModeUpdate.connect(
+            self._apply_replay_mode, Qt.ConnectionType.QueuedConnection
+        )
 
     @Property(bool, notify=connectedChanged)
     def connected(self) -> bool:
@@ -39,6 +48,19 @@ class LedBarBackend(QObject):
     def infoText(self) -> str:
         return self._info
 
+    @Property(bool, notify=replayPowerOnAvailableChanged)
+    def replayPowerOnAvailable(self) -> bool:
+        return self._last_replay is not None
+
+    def _apply_replay_mode(self, data: object) -> None:
+        if data is None:
+            self._last_replay = None
+        elif isinstance(data, dict):
+            self._last_replay = dict(data)
+        else:
+            self._last_replay = None
+        self.replayPowerOnAvailableChanged.emit()
+
     def _refresh_info(self) -> None:
         if self._bar is None:
             self._info = ""
@@ -47,6 +69,30 @@ class LedBarBackend(QObject):
             fx = ", ".join(sorted(LED_BAR_EFFECT_CODES))
             self._info = f"ITE 8233 048d:{pid:04x}\nEffects: {fx}"
         self.infoChanged.emit()
+
+    def _replay_last_on_device(self) -> None:
+        if self._bar is None or self._last_replay is None:
+            return
+        mode = self._last_replay.get("kind")
+        if mode == "effect":
+            self._bar.apply_visual_effect(str(self._last_replay["name"]))
+        elif mode == "color":
+            r, g, b = parse_color(str(self._last_replay["spec"]))
+            self._bar.set_static_rgb(r, g, b)
+        elif mode == "palette":
+            colors = parse_palette(str(self._last_replay["spec"]))
+            self._bar.set_palette_colors(colors)
+            self._bar.apply_visual_effect(str(self._last_replay["effect"]))
+        elif mode == "tune_bri":
+            self._bar.set_brightness_level(int(self._last_replay["brightness"]))
+            self._bar.apply_visual_effect(str(self._last_replay["effect"]))
+        elif mode == "tune_sp":
+            self._bar.set_motion_speed(int(self._last_replay["speed"]))
+            self._bar.apply_visual_effect(str(self._last_replay["effect"]))
+        elif mode == "tune":
+            self._bar.set_brightness_level(int(self._last_replay["brightness"]))
+            self._bar.set_motion_speed(int(self._last_replay["speed"]))
+            self._bar.apply_visual_effect(str(self._last_replay["effect"]))
 
     @Slot(int, int)
     def connectAt(self, bus: int, addr: int) -> None:
@@ -67,6 +113,7 @@ class LedBarBackend(QObject):
             self._addr = -1
             self.connectedChanged.emit()
             self._refresh_info()
+            self.replayModeUpdate.emit(None)
 
         self._worker.submit(task)
 
@@ -90,6 +137,17 @@ class LedBarBackend(QObject):
         self._worker.submit(task)
 
     @Slot()
+    def powerOnReplay(self) -> None:
+        def task() -> None:
+            if self._bar is None:
+                return
+            self._bar.power_on()
+            self._replay_last_on_device()
+            self._refresh_info()
+
+        self._worker.submit(task)
+
+    @Slot()
     def powerOff(self) -> None:
         def task() -> None:
             if self._bar is None:
@@ -107,6 +165,7 @@ class LedBarBackend(QObject):
                 return
             r, g, b = parse_color(spec)
             self._bar.set_static_rgb(r, g, b)
+            self.replayModeUpdate.emit({"kind": "color", "spec": spec})
 
         self._worker.submit(task)
 
@@ -118,6 +177,9 @@ class LedBarBackend(QObject):
             colors = parse_palette(spec)
             self._bar.set_palette_colors(colors)
             self._bar.apply_visual_effect(effect)
+            self.replayModeUpdate.emit(
+                {"kind": "palette", "spec": spec, "effect": effect}
+            )
 
         self._worker.submit(task)
 
@@ -127,6 +189,7 @@ class LedBarBackend(QObject):
             if self._bar is None:
                 return
             self._bar.apply_visual_effect(name)
+            self.replayModeUpdate.emit({"kind": "effect", "name": name})
 
         self._worker.submit(task)
 
@@ -137,6 +200,13 @@ class LedBarBackend(QObject):
                 return
             self._bar.set_brightness_level(value)
             self._bar.apply_visual_effect(effect)
+            self.replayModeUpdate.emit(
+                {
+                    "kind": "tune_bri",
+                    "brightness": value,
+                    "effect": effect,
+                }
+            )
 
         self._worker.submit(task)
 
@@ -147,5 +217,29 @@ class LedBarBackend(QObject):
                 return
             self._bar.set_motion_speed(value)
             self._bar.apply_visual_effect(effect)
+            self.replayModeUpdate.emit(
+                {"kind": "tune_sp", "speed": value, "effect": effect}
+            )
+
+        self._worker.submit(task)
+
+    @Slot(int, int, str)
+    def applyBrightnessSpeedEffect(self, brightness: int, speed: int, effect: str) -> None:
+        """Set brightness, motion speed, then re-apply effect (single apply from UI)."""
+
+        def task() -> None:
+            if self._bar is None:
+                return
+            self._bar.set_brightness_level(brightness)
+            self._bar.set_motion_speed(speed)
+            self._bar.apply_visual_effect(effect)
+            self.replayModeUpdate.emit(
+                {
+                    "kind": "tune",
+                    "brightness": brightness,
+                    "speed": speed,
+                    "effect": effect,
+                }
+            )
 
         self._worker.submit(task)

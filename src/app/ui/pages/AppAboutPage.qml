@@ -4,12 +4,20 @@ import QtQuick.Layouts
 import org.kde.kirigami as Kirigami
 
 /**
- * About + app preferences (tray quit lives here).
+ * About: credits, licenses, upstream references (see LICENSE and NOTICE in the repo).
  */
 Kirigami.ScrollablePage {
     id: aboutRoot
     objectName: "aboutPage"
     title: ""
+
+    leftPadding: Kirigami.Units.largeSpacing
+    rightPadding: Kirigami.Units.largeSpacing
+    topPadding: Kirigami.Units.largeSpacing
+
+    background: Rectangle {
+        color: "transparent"
+    }
 
     ColumnLayout {
         width: aboutRoot.width - aboutRoot.leftPadding - aboutRoot.rightPadding
@@ -27,7 +35,7 @@ Kirigami.ScrollablePage {
                 homepage: "",
                 bugAddress: "",
                 version: App.applicationVersion,
-                otherText: "",
+                otherText: qsTr("Third-party and protocol references are summarized in the repository file NOTICE (ite8291r3-ctl, ite8233-ledbar). The full GPL-2.0 license text is in LICENSE."),
                 authors: [],
                 credits: [],
                 translators: [],
@@ -35,41 +43,12 @@ Kirigami.ScrollablePage {
                     {
                         name: "GPL-2.0-or-later",
                         spdx: "GPL-2.0-or-later",
-                        text: ""
+                        text: qsTr("This program is licensed under the GNU General Public License v2.0 or later. See the LICENSE file in the source tree for the complete legal text.")
                     }
                 ],
-                copyrightStatement: qsTr("GPL-2.0-or-later — LICENSE and NOTICE."),
+                copyrightStatement: qsTr("See LICENSE and NOTICE in the repository."),
                 desktopFileName: ""
             })
-        }
-
-        Kirigami.Separator { Layout.fillWidth: true }
-
-        Kirigami.Heading {
-            Layout.fillWidth: true
-            level: 3
-            text: qsTr("Settings")
-        }
-
-        CheckBox {
-            text: qsTr("Close to system tray (hide window instead of quitting)")
-            checked: App.closeToTray
-            onToggled: function (c) { App.closeToTray = c }
-            ToolTip.visible: hovered
-            ToolTip.text: qsTr("Quit fully from the tray menu (Quit) or the button below.")
-        }
-
-        CheckBox {
-            text: qsTr("Auto-connect keyboard and LED bar when the app starts (after USB scan)")
-            checked: App.autoConnectOnStartup
-            onToggled: function (c) { App.autoConnectOnStartup = c }
-            ToolTip.visible: hovered
-            ToolTip.text: qsTr("Uses the first matching device of each type from the device list. Disable if you prefer to connect manually on the Devices tab.")
-        }
-
-        Button {
-            text: qsTr("Quit application")
-            onClicked: App.quitApplication()
         }
     }
 }

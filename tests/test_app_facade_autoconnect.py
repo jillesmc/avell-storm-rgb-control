@@ -123,3 +123,47 @@ def test_try_auto_connect_skips_if_already_open_same_device(
 
     facade._keyboard.connectAt.assert_not_called()
     facade.shutdown()
+
+
+def test_connect_first_discovered_keyboard_first_in_list(
+    qapp_isolated_settings, monkeypatch
+) -> None:
+    fake_devices = [
+        {"kind": "led_bar", "bus": 9, "addr": 1, "label": "led"},
+        {"kind": "keyboard", "bus": 3, "addr": 5, "label": "kb"},
+    ]
+    monkeypatch.setattr(
+        "app.ui.adapters.device_model.enumerate_usb_devices", lambda: list(fake_devices)
+    )
+
+    facade = AppFacade()
+    facade._keyboard.connectAt = MagicMock()  # type: ignore[method-assign]
+
+    facade.refreshDevices()
+    facade.connectFirstDiscovered("keyboard")
+
+    facade._keyboard.connectAt.assert_called_once_with(3, 5)
+    facade.shutdown()
+
+
+def test_connect_first_discovered_skips_when_already_on_that_device(
+    qapp_isolated_settings, monkeypatch
+) -> None:
+    fake_devices = [
+        {"kind": "keyboard", "bus": 3, "addr": 5, "label": "kb"},
+    ]
+    monkeypatch.setattr(
+        "app.ui.adapters.device_model.enumerate_usb_devices", lambda: list(fake_devices)
+    )
+
+    facade = AppFacade()
+    facade._keyboard.connectAt = MagicMock()  # type: ignore[method-assign]
+    facade.refreshDevices()
+    facade._keyboard._kb = object()
+    facade._keyboard._bus = 3
+    facade._keyboard._addr = 5
+
+    facade.connectFirstDiscovered("keyboard")
+
+    facade._keyboard.connectAt.assert_not_called()
+    facade.shutdown()

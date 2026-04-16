@@ -40,5 +40,6 @@ Seguir a rule [kirigami-plasma6-qml.mdc](../../rules/kirigami-plasma6-qml.mdc): 
 
 ## Ver também
 
+- [kirigami-hig-ux](../kirigami-hig-ux/SKILL.md) — KDE HIG, cores, delegates, secções de lista, Page/Sheet/Dialog.
 - [pyside-ui-refactor](../pyside-ui-refactor/SKILL.md) — separar negócio (`core/`) de apresentação.
 - [pyside6-best-practices](../pyside6-best-practices/SKILL.md) — PySide6 geral.

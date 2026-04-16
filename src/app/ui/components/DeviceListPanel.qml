@@ -12,15 +12,19 @@ ColumnLayout {
     property string lastError: ""
     property color errorTextColor: Kirigami.Theme.negativeTextColor
     property string devicesHint: ""
+    /** When false, hide the top “Refresh list” row (shell puts Refresh in a footer). */
+    property bool showHeaderRefresh: true
 
     signal refreshClicked()
     signal connectRequested(string kind, int bus, int addr)
     signal clearErrorClicked()
 
     RowLayout {
+        visible: panel.showHeaderRefresh
         Layout.leftMargin: Kirigami.Units.largeSpacing
         Layout.rightMargin: Kirigami.Units.largeSpacing
         Layout.topMargin: Kirigami.Units.smallSpacing
+        Layout.bottomMargin: Kirigami.Units.mediumSpacing
         Button {
             text: qsTr("Refresh list")
             ToolTip.visible: hovered
@@ -33,12 +37,25 @@ ColumnLayout {
             Layout.fillWidth: true
         }
     }
+    RowLayout {
+        visible: !panel.showHeaderRefresh
+        Layout.leftMargin: Kirigami.Units.largeSpacing
+        Layout.rightMargin: Kirigami.Units.largeSpacing
+        Layout.topMargin: Kirigami.Units.smallSpacing
+        Layout.bottomMargin: Kirigami.Units.mediumSpacing
+        Label {
+            text: panel.devicesHint
+            wrapMode: Text.WordWrap
+            Layout.fillWidth: true
+        }
+    }
 
     Kirigami.InlineMessage {
         objectName: "deviceErrorInline"
         Layout.fillWidth: true
         Layout.leftMargin: Kirigami.Units.largeSpacing
         Layout.rightMargin: Kirigami.Units.largeSpacing
+        Layout.bottomMargin: Kirigami.Units.mediumSpacing
         visible: panel.lastError.length > 0
         type: Kirigami.MessageType.Error
         text: panel.lastError

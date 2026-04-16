@@ -21,6 +21,7 @@ from gui_helpers import ensure_qapp, ui_dir
         "KeyboardPage.qml",
         "LedBarPage.qml",
         "AppAboutPage.qml",
+        "SettingsPage.qml",
     ],
 )
 def test_page_component_ready(qml_name: str) -> None:

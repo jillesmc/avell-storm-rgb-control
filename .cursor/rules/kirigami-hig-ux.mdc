@@ -1,0 +1,28 @@
+---
+description: >-
+  KDE HIG + Kirigami UX for QML — theme, delegates, list sections, dialogs.
+  Complements kirigami-plasma6-qml; read skill kirigami-hig-ux for full context.
+globs: src/app/ui/**/*.qml
+alwaysApply: false
+---
+
+# Kirigami UX / KDE HIG (checklist)
+
+Full guidance: [.cursor/skills/kirigami-hig-ux/SKILL.md](../skills/kirigami-hig-ux/SKILL.md). Official: [hig.kde.org](https://hig.kde.org/), [displaying content](https://develop.kde.org/hig/displaying_content/), [style-colors](https://develop.kde.org/docs/getting-started/kirigami/style-colors/).
+
+## Do
+
+- Color manual **`Rectangle` / labels** with **`Kirigami.Theme`** (and **`ColorUtils`** for blends). Use **`Theme.colorSet` / `inherit`** when sidebars vs content should differ.
+- List rows: **`ItemDelegate`** or **`org.kde.kirigami.delegates`** (`SubtitleDelegate`, `SwitchSubtitleDelegate`, …) so **hover/selection** match Breeze.
+- **`ListView` section headers**: **same row** = section title + **`Kirigami.Separator`** (`Layout.fillWidth`, `AlignVCenter`) — Plasma / gallery pattern.
+- Overlays: **Page** (full flow) · **OverlaySheet** (read-only auxiliary scroll) · **Dialog** (input / confirm) per HIG.
+- Icons: **`Kirigami.primitives.Icon`** + theme **`source`** name; **`fallback`** if needed.
+- Before binding **`Kirigami.Theme.someProperty`**, confirm it exists in [Theme docs](https://api.kde.org/qml-org-kde-kirigami-platform-theme.html) (avoid undefined → QColor errors).
+
+## Don’t
+
+- Hardcoded **`#000`** / heavy hex in **chrome**; black-on-near-black in dark themes.
+- **`Qt.darker` / `Qt.lighter`** in QML without confirming the target Qt exposes them; prefer **`Kirigami.ColorUtils.linearInterpolation`**.
+- Reinvent list styling when **delegates** cover the case.
+- **Critical** UX only in **tooltips**.
+- Section UI that puts a **full-width separator line above** the section title when the target is **System Settings–like** (title + trailing line in one row).

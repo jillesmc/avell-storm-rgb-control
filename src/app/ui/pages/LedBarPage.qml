@@ -5,201 +5,401 @@ import org.kde.kirigami as Kirigami
 import org.kde.kirigami.layouts as KLayouts
 import components
 
-Kirigami.ScrollablePage {
+/**
+ * LED bar: headers + scroll body by subNavIndex + footer (shell drives subNavIndex).
+ */
+Item {
     id: ledRoot
     objectName: "ledBarPage"
     property var appShell
+    property int subNavIndex: 0
 
-    title: ""
+    property bool ledPreferNamed: true
+    property string ledPickName: ""
+    property bool ledHexProgrammatic: false
 
-    ColumnLayout {
-        width: Math.max(ledRoot.width - Kirigami.Units.gridUnit * 6, 200)
-        spacing: Kirigami.Units.largeSpacing
-    Label {
-        text: App.ledBar.connected ? qsTr("LED bar: connected") : qsTr("LED bar: not connected")
-        font.bold: true
-    }
-    Button {
-        text: qsTr("Disconnect LED bar")
-        ToolTip.visible: hovered
-        ToolTip.text: qsTr("Release USB handle for the LED bar.")
-        enabled: App.ledBar.connected
-        onClicked: App.ledBar.disconnectDevice()
-    }
-    RowLayout {
-        Button {
-            text: qsTr("Refresh status")
-            ToolTip.visible: hovered
-            ToolTip.text: qsTr("Same as CLI: avell-storm-rgb led-bar inspect")
-            onClicked: App.ledBar.refreshInspect()
-        }
-    }
-    Label { text: App.ledBar.infoText; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-
-    RowLayout {
-        Button {
-            text: qsTr("Power on")
-            ToolTip.visible: hovered
-            ToolTip.text: qsTr("LED bar init / on sequence.")
-            onClicked: App.ledBar.powerOn()
-        }
-        Button {
-            text: qsTr("Power off")
-            ToolTip.visible: hovered
-            ToolTip.text: qsTr("Turn LED bar off.")
-            onClicked: App.ledBar.powerOff()
+    function applyLedConfiguration() {
+        var m = ledRoot.subNavIndex
+        if (m === 0) {
+            if (ledRoot.ledPreferNamed && ledRoot.ledPickName.length > 0)
+                App.ledBar.setColorFromSpec(ledRoot.ledPickName)
+            else
+                App.ledBar.setColorFromSpec(ledHex.text)
+        } else if (m === 1) {
+            App.ledBar.applyPalette(appShell.ledSelectedPalette, ledPalFx.currentText)
+        } else if (m === 2) {
+            App.ledBar.applyEffect(appShell.ledSelectedEffect)
+        } else if (m === 3) {
+            App.ledBar.applyBrightnessSpeedEffect(
+                ledGlobalBright.value,
+                ledTuneSpeed.value,
+                ledTuneFx.currentText
+            )
         }
     }
 
-    RowLayout {
-        ComboBox {
-            id: ledNamed
-            model: App.ledNamedColors
-            Layout.preferredWidth: 160
-            ToolTip.visible: hovered
-            ToolTip.text: qsTr("Named colour from LED bar palette table.")
+    function ledInfoSummary() {
+        if (!App.ledBar.connected)
+            return qsTr("Not connected. Turn on the sidebar switch or choose a device on Devices.")
+        return App.ledBar.infoText.length > 0 ? App.ledBar.infoText : qsTr("Tap Refresh in this panel for device details.")
+    }
+
+    function setHexFromNamed(r, g, b) {
+        ledRoot.ledHexProgrammatic = true
+        var h = function (v) {
+            var s = Math.round(v).toString(16)
+            return s.length === 1 ? "0" + s : s
         }
-        Button {
-            text: qsTr("Named color")
-            onClicked: App.ledBar.setColorFromSpec(ledNamed.currentText)
-        }
-        TextField {
-            id: ledHex
-            placeholderText: "#ff5500"
-            Layout.preferredWidth: 120
-            ToolTip.visible: hovered
-            ToolTip.text: qsTr("CSS-style #RRGGBB")
-        }
-        Button {
-            text: qsTr("Hex")
-            onClicked: App.ledBar.setColorFromSpec(ledHex.text)
+        ledHex.text = "#" + h(r) + h(g) + h(b)
+        ledRoot.ledHexProgrammatic = false
+    }
+
+    Component.onCompleted: {
+        if (ledRoot.ledPickName.length === 0 && App.ledNamedColors.length > 0)
+            ledRoot.ledPickName = App.ledNamedColors[0]
+        if (App.ledNamedColorEntries.length > 0) {
+            var e = App.ledNamedColorEntries[0]
+            ledRoot.setHexFromNamed(e.r, e.g, e.b)
         }
     }
 
-    Kirigami.Heading {
-        level: 2
-        text: qsTr("Palette preset + effect")
-        Layout.fillWidth: true
-    }
-    Kirigami.Separator { Layout.fillWidth: true }
-    Label { text: qsTr("Preset (tap chip)") }
-    Flow {
-        Layout.fillWidth: true
-        spacing: Kirigami.Units.smallSpacing
-        Repeater {
-            model: App.ledPalettePresets
-            delegate: Kirigami.Chip {
-                required property var modelData
-                closable: false
-                text: modelData
-                checked: appShell.ledSelectedPalette === modelData
-                ToolTip.visible: hovered
-                ToolTip.text: qsTr("Preset palette: %1").arg(modelData)
-                onClicked: appShell.ledSelectedPalette = modelData
+    Item {
+        anchors.fill: parent
+        anchors.leftMargin: Kirigami.Units.largeSpacing
+        anchors.rightMargin: Kirigami.Units.largeSpacing
+        anchors.topMargin: Kirigami.Units.largeSpacing
+        anchors.bottomMargin: Kirigami.Units.largeSpacing
+
+        ColumnLayout {
+            anchors.fill: parent
+            spacing: Kirigami.Units.largeSpacing
+
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: Kirigami.Units.smallSpacing
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: Kirigami.Units.smallSpacing
+
+                    Kirigami.Heading {
+                        level: 3
+                        text: qsTr("LED bar")
+                    }
+                    ToolButton {
+                        icon.name: "dialog-information-symbolic"
+                        onClicked: ledInfoPopup.open()
+                    }
+                    Popup {
+                        id: ledInfoPopup
+                        width: Math.min(ledRoot.width - Kirigami.Units.gridUnit * 4, 420)
+                        padding: Kirigami.Units.mediumSpacing
+                        modal: true
+                        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+                        contentItem: ColumnLayout {
+                            spacing: Kirigami.Units.smallSpacing
+                            width: ledInfoPopup.availableWidth
+                            Label {
+                                wrapMode: Text.WordWrap
+                                Layout.fillWidth: true
+                                text: ledInfoSummary()
+                            }
+                            RowLayout {
+                                spacing: Kirigami.Units.smallSpacing
+                                Button {
+                                    text: qsTr("Refresh")
+                                    onClicked: App.ledBar.refreshInspect()
+                                }
+                                Button {
+                                    text: qsTr("Disconnect")
+                                    enabled: App.ledBar.connected
+                                    onClicked: App.ledBar.disconnectDevice()
+                                }
+                            }
+                        }
+                    }
+                    Item {
+                        Layout.fillWidth: true
+                    }
+                    Label {
+                        text: qsTr("Connected")
+                        visible: App.ledBar.connected
+                    }
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: Kirigami.Units.smallSpacing
+
+                    SliderSpinRow {
+                        id: ledGlobalBright
+                        label: qsTr("Brightness 0–100")
+                        from: 0
+                        to: 100
+                        value: 50
+                        Layout.fillWidth: true
+                        sliderMinimumWidth: 100
+                    }
+                    Button {
+                        text: qsTr("Set brightness + effect")
+                        ToolTip.visible: hovered
+                        ToolTip.text: qsTr("Set brightness and re-apply the selected effect.")
+                        enabled: App.ledBar.connected
+                        onClicked: App.ledBar.setBrightnessWithEffect(ledGlobalBright.value, ledQuickBriFx.currentText)
+                    }
+                    ComboBox {
+                        id: ledQuickBriFx
+                        model: App.ledEffectNames
+                        Layout.preferredWidth: 160
+                        Component.onCompleted: syncQuickFx()
+                        onModelChanged: syncQuickFx()
+                        function syncQuickFx() {
+                            var names = App.ledEffectNames
+                            var sel = appShell.ledSelectedEffect
+                            for (var j = 0; j < names.length; j++) {
+                                if (names[j] === sel) {
+                                    currentIndex = j
+                                    return
+                                }
+                            }
+                            if (names.length > 0)
+                                currentIndex = 0
+                        }
+                        onActivated: function (ix) {
+                            appShell.ledSelectedEffect = textAt(ix)
+                        }
+                    }
+                    Connections {
+                        target: appShell
+                        function onLedSelectedEffectChanged() {
+                            ledQuickBriFx.syncQuickFx()
+                        }
+                    }
+                }
             }
-        }
-    }
-    RowLayout {
-        Layout.fillWidth: true
-        ComboBox {
-            id: ledPalFx
-            model: App.ledEffectNames
+
+        Kirigami.Separator {
             Layout.fillWidth: true
-            ToolTip.visible: hovered
-            ToolTip.text: qsTr("Visual effect paired with the chosen preset colours.")
         }
-        Button {
-            text: qsTr("Apply preset + effect")
-            ToolTip.visible: hovered
-            ToolTip.text: qsTr("Match CLI: led-bar palette … --with-effect …")
-            onClicked: App.ledBar.applyPalette(appShell.ledSelectedPalette, ledPalFx.currentText)
-        }
-    }
 
-    Kirigami.Heading {
-        level: 2
-        text: qsTr("Visual effect")
-        Layout.fillWidth: true
-    }
-    Kirigami.Separator { Layout.fillWidth: true }
-    GridView {
-        id: ledFxGrid
-        Layout.fillWidth: true
-        height: Math.ceil(App.ledEffectNames.length / 2) * (Kirigami.Units.gridUnit * 5 + Kirigami.Units.smallSpacing)
-            + Kirigami.Units.smallSpacing
-        clip: false
-        cellWidth: Math.max(width / 2, Kirigami.Units.gridUnit * 14)
-        cellHeight: Kirigami.Units.gridUnit * 5 + Kirigami.Units.smallSpacing
-        model: App.ledEffectNames
-        delegate: EffectCard {
-            width: ledFxGrid.cellWidth - 6
-            height: ledFxGrid.cellHeight - 6
-            required property int index
-            effectName: App.ledEffectNames[index]
-            onActivated: App.ledBar.applyEffect(effectName)
-        }
-    }
-    Label {
-        text: qsTr("Tap a chip to apply that effect.")
-        font.pointSize: 9
-        wrapMode: Text.WordWrap
-        Layout.fillWidth: true
-    }
+        ScrollView {
+            id: ledScroll
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            clip: true
 
-    KLayouts.FormLayout {
-        Layout.fillWidth: true
-        wideMode: true
-        SliderSpinRow {
-            id: ledBriRow
-            showLabel: false
-            Kirigami.FormData.label: qsTr("Brightness (0–100):")
-            from: 0
-            to: 100
-            value: 50
+            StackLayout {
+                id: ledModeStack
+                width: Math.max(ledScroll.availableWidth, 200)
+                currentIndex: ledRoot.subNavIndex
+                implicitHeight: {
+                    var it = ledModeStack.itemAt(ledModeStack.currentIndex)
+                    return it ? it.implicitHeight : Kirigami.Units.gridUnit * 20
+                }
+
+                ColumnLayout {
+                    spacing: Kirigami.Units.smallSpacing
+                    width: parent.width
+                    Layout.leftMargin: Kirigami.Units.smallSpacing
+                    Layout.rightMargin: Kirigami.Units.smallSpacing
+                    Label {
+                        wrapMode: Text.WordWrap
+                        Layout.fillWidth: true
+                        text: qsTr("Named swatches and hex are both visible. Apply uses a named key if you last tapped a swatch; editing hex switches to hex apply.")
+                        font.italic: true
+                    }
+                    Label {
+                        text: qsTr("Named colours (LED table)")
+                    }
+                    Flow {
+                        id: ledNamedFlow
+                        Layout.fillWidth: true
+                        spacing: Kirigami.Units.smallSpacing
+                        Repeater {
+                            model: App.ledNamedColorEntries
+                            delegate: Rectangle {
+                                required property var modelData
+                                width: (ledNamedFlow.width - ledNamedFlow.spacing * 3) / 4
+                                height: Kirigami.Units.gridUnit * 5
+                                radius: 4
+                                border.width: ledRoot.ledPreferNamed && ledRoot.ledPickName === modelData.name ? 3 : 1
+                                border.color: ledRoot.ledPreferNamed && ledRoot.ledPickName === modelData.name
+                                              ? Kirigami.Theme.highlightColor
+                                              : Qt.alpha(Kirigami.Theme.disabledTextColor, 0.22)
+                                color: Qt.rgba(modelData.r / 255, modelData.g / 255, modelData.b / 255, 1)
+                                Label {
+                                    anchors.bottom: parent.bottom
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    anchors.margins: 2
+                                    text: modelData.name
+                                    font.pixelSize: Kirigami.Theme.smallFont.pixelSize
+                                    style: Text.Outline
+                                    styleColor: Qt.rgba(0, 0, 0, 0.7)
+                                }
+                                MouseArea {
+                                    anchors.fill: parent
+                                    onClicked: {
+                                        ledRoot.ledPreferNamed = true
+                                        ledRoot.ledPickName = modelData.name
+                                        ledRoot.setHexFromNamed(modelData.r, modelData.g, modelData.b)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    Label {
+                        text: qsTr("Hex (#RRGGBB)")
+                    }
+                    TextField {
+                        id: ledHex
+                        placeholderText: "#ff5500"
+                        Layout.preferredWidth: 140
+                        ToolTip.visible: hovered
+                        ToolTip.text: qsTr("CSS-style #RRGGBB")
+                        onTextChanged: {
+                            if (!ledRoot.ledHexProgrammatic)
+                                ledRoot.ledPreferNamed = false
+                        }
+                    }
+                }
+
+                ColumnLayout {
+                    spacing: Kirigami.Units.smallSpacing
+                    width: parent.width
+                    Label {
+                        text: qsTr("Preset (tap chip)")
+                        Layout.leftMargin: Kirigami.Units.smallSpacing
+                    }
+                    Flow {
+                        Layout.fillWidth: true
+                        Layout.leftMargin: Kirigami.Units.smallSpacing
+                        Layout.rightMargin: Kirigami.Units.smallSpacing
+                        spacing: Kirigami.Units.smallSpacing
+                        Repeater {
+                            model: App.ledPalettePresets
+                            delegate: Kirigami.Chip {
+                                required property var modelData
+                                closable: false
+                                text: modelData
+                                checked: appShell.ledSelectedPalette === modelData
+                                ToolTip.visible: hovered
+                                ToolTip.text: qsTr("Preset palette: %1").arg(modelData)
+                                onClicked: appShell.ledSelectedPalette = modelData
+                            }
+                        }
+                    }
+                    ComboBox {
+                        id: ledPalFx
+                        model: App.ledEffectNames
+                        Layout.fillWidth: true
+                        Layout.leftMargin: Kirigami.Units.smallSpacing
+                        Layout.rightMargin: Kirigami.Units.smallSpacing
+                        ToolTip.visible: hovered
+                        ToolTip.text: qsTr("Visual effect paired with the chosen preset colours.")
+                    }
+                }
+
+                ColumnLayout {
+                    spacing: Kirigami.Units.smallSpacing
+                    width: parent.width
+                    Label {
+                        text: qsTr("Effect (tap a chip to select)")
+                        Layout.leftMargin: Kirigami.Units.smallSpacing
+                    }
+                    GridView {
+                        id: ledFxGrid
+                        objectName: "ledBarEffectGrid"
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: Math.ceil(App.ledEffectNames.length / 2) * (Kirigami.Units.gridUnit * 5 + Kirigami.Units.smallSpacing)
+                            + Kirigami.Units.smallSpacing
+                        Layout.leftMargin: Kirigami.Units.smallSpacing
+                        Layout.rightMargin: Kirigami.Units.smallSpacing
+                        clip: false
+                        cellWidth: Math.max(width / 2, Kirigami.Units.gridUnit * 14)
+                        cellHeight: Kirigami.Units.gridUnit * 5 + Kirigami.Units.smallSpacing
+                        model: App.ledEffectNames
+                        delegate: EffectCard {
+                            width: ledFxGrid.cellWidth - 6
+                            height: ledFxGrid.cellHeight - 6
+                            required property int index
+                            effectName: App.ledEffectNames[index]
+                            selected: appShell.ledSelectedEffect === effectName
+                            onActivated: appShell.ledSelectedEffect = effectName
+                        }
+                    }
+                }
+
+                ColumnLayout {
+                    spacing: Kirigami.Units.smallSpacing
+                    width: parent.width
+                    KLayouts.FormLayout {
+                        wideMode: true
+                        Layout.fillWidth: true
+                        Layout.leftMargin: Kirigami.Units.smallSpacing
+                        Layout.rightMargin: Kirigami.Units.smallSpacing
+                        Label {
+                            Kirigami.FormData.label: qsTr("Note:")
+                            text: qsTr("Brightness is set from the bar above; this mode applies speed and effect together.")
+                            wrapMode: Text.WordWrap
+                            Layout.fillWidth: true
+                        }
+                        SliderSpinRow {
+                            id: ledTuneSpeed
+                            showLabel: false
+                            Kirigami.FormData.label: qsTr("Speed (1–10):")
+                            from: 1
+                            to: 10
+                            value: 3
+                        }
+                        ComboBox {
+                            id: ledTuneFx
+                            model: App.ledEffectNames
+                            Kirigami.FormData.label: qsTr("Effect:")
+                            Layout.fillWidth: true
+                            ToolTip.visible: hovered
+                            ToolTip.text: qsTr("Effect applied after brightness and speed.")
+                        }
+                    }
+                }
+            }
         }
+
+        Kirigami.Separator {
+            Layout.fillWidth: true
+        }
+
         RowLayout {
-            Kirigami.FormData.label: qsTr("Re-apply effect:")
+            Layout.fillWidth: true
             spacing: Kirigami.Units.smallSpacing
-            ComboBox {
-                id: ledBriFx
-                model: App.ledEffectNames
-                Layout.fillWidth: true
+
+            Button {
+                text: qsTr("Power off")
                 ToolTip.visible: hovered
-                ToolTip.text: qsTr("Re-apply this effect after setting brightness.")
+                ToolTip.text: qsTr("Turn LED bar off. Last applied look is stored for Power on.")
+                enabled: App.ledBar.connected
+                onClicked: App.ledBar.powerOff()
             }
             Button {
-                text: qsTr("Apply brightness + effect")
+                text: qsTr("Power on")
                 ToolTip.visible: hovered
-                ToolTip.text: qsTr("LED bar brightness 0–100 with effect (CLI parity).")
-                onClicked: App.ledBar.setBrightnessWithEffect(ledBriRow.value, ledBriFx.currentText)
+                ToolTip.text: App.ledBar.replayPowerOnAvailable
+                              ? qsTr("Initialize the bar and restore the last applied colours / effect.")
+                              : qsTr("Apply a configuration first, then Power off, to enable replay.")
+                enabled: App.ledBar.connected && App.ledBar.replayPowerOnAvailable
+                onClicked: App.ledBar.powerOnReplay()
             }
-        }
-        SliderSpinRow {
-            id: ledSpRow
-            showLabel: false
-            Kirigami.FormData.label: qsTr("Speed (1–10):")
-            from: 1
-            to: 10
-            value: 3
-        }
-        RowLayout {
-            Kirigami.FormData.label: qsTr("Re-apply effect:")
-            spacing: Kirigami.Units.smallSpacing
-            ComboBox {
-                id: ledSpFx
-                model: App.ledEffectNames
+            Item {
                 Layout.fillWidth: true
-                ToolTip.visible: hovered
-                ToolTip.text: qsTr("Re-apply this effect after setting motion speed.")
             }
             Button {
-                text: qsTr("Apply speed + effect")
+                objectName: "ledBarApplyConfig"
+                text: qsTr("Apply")
                 ToolTip.visible: hovered
-                ToolTip.text: qsTr("Motion speed 1–10 with effect.")
-                onClicked: App.ledBar.setSpeedWithEffect(ledSpRow.value, ledSpFx.currentText)
+                ToolTip.text: qsTr("Apply the current LED bar mode.")
+                enabled: App.ledBar.connected
+                onClicked: ledRoot.applyLedConfiguration()
             }
         }
-    }
+        }
     }
 }
-

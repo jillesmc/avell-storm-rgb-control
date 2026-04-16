@@ -41,6 +41,23 @@ class KeyboardBackend(QObject):
     keyGridChanged = Signal()
 
     inspectUpdate = Signal(str, int, bool)
+    effectSnapshotUpdate = Signal(object)
+    replayPowerOnAvailableChanged = Signal()
+    paletteMirrorChanged = Signal()
+    paletteClearRequest = Signal()
+    paletteSlotWritten = Signal(int, int, int, int)
+    paletteBatchReady = Signal(object)
+
+    #: Matches ``restore_default_palette`` in ite8291_usb (session mirror only).
+    _DEFAULT_PALETTE: dict[int, tuple[int, int, int]] = {
+        1: (255, 0, 0),
+        2: (255, 28, 0),
+        3: (255, 119, 0),
+        4: (0, 255, 0),
+        5: (0, 0, 255),
+        6: (0, 255, 255),
+        7: (255, 0, 255),
+    }
 
     def __init__(self, worker: UsbWorker, parent: QObject | None = None) -> None:
         super().__init__(parent)
@@ -56,9 +73,23 @@ class KeyboardBackend(QObject):
         self._follow_stop = threading.Event()
         self._key_colors: dict[tuple[int, int], tuple[int, int, int]] = {}
         self._key_grid_epoch = 0
+        self._last_effect_snapshot: list[int] | None = None
+        self._palette_mirror: dict[int, tuple[int, int, int]] = {}
 
         self.inspectUpdate.connect(
             self._apply_inspect, Qt.ConnectionType.QueuedConnection
+        )
+        self.effectSnapshotUpdate.connect(
+            self._apply_effect_snapshot, Qt.ConnectionType.QueuedConnection
+        )
+        self.paletteClearRequest.connect(
+            self._clear_palette_mirror, Qt.ConnectionType.QueuedConnection
+        )
+        self.paletteSlotWritten.connect(
+            self._apply_palette_slot_write, Qt.ConnectionType.QueuedConnection
+        )
+        self.paletteBatchReady.connect(
+            self._on_palette_batch_ready, Qt.ConnectionType.QueuedConnection
         )
 
         try:
@@ -90,6 +121,10 @@ class KeyboardBackend(QObject):
     @Property(bool, notify=inspectChanged)
     def isOff(self) -> bool:
         return self._off
+
+    @Property(bool, notify=replayPowerOnAvailableChanged)
+    def replayPowerOnAvailable(self) -> bool:
+        return self._last_effect_snapshot is not None
 
     @Property(bool, notify=debugChanged)
     def debugUsb(self) -> bool:
@@ -135,6 +170,51 @@ class KeyboardBackend(QObject):
         self._off = off
         self.inspectChanged.emit()
 
+    def _apply_effect_snapshot(self, snap: object) -> None:
+        if snap is None:
+            self._last_effect_snapshot = None
+        else:
+            self._last_effect_snapshot = list(snap)  # type: ignore[arg-type]
+        self.replayPowerOnAvailableChanged.emit()
+
+    def _clear_palette_mirror(self) -> None:
+        self._palette_mirror.clear()
+        self.paletteMirrorChanged.emit()
+
+    def _apply_palette_slot_write(self, slot: int, r: int, g: int, b: int) -> None:
+        self._palette_mirror[int(slot)] = (int(r), int(g), int(b))
+        self.paletteMirrorChanged.emit()
+
+    def _on_palette_batch_ready(self, batch: object) -> None:
+        if not isinstance(batch, dict):
+            return
+        d: dict[int, tuple[int, int, int]] = {}
+        for k, v in batch.items():
+            ki = int(k)
+            if isinstance(v, (list, tuple)) and len(v) == 3:
+                d[ki] = (int(v[0]), int(v[1]), int(v[2]))
+        self._palette_mirror = d
+        self.paletteMirrorChanged.emit()
+
+    @Slot(int, result=int)
+    def paletteSlotR(self, slot: int) -> int:
+        t = self._palette_mirror.get(max(1, min(7, slot)))
+        return -1 if t is None else t[0]
+
+    @Slot(int, result=int)
+    def paletteSlotG(self, slot: int) -> int:
+        t = self._palette_mirror.get(max(1, min(7, slot)))
+        return -1 if t is None else t[1]
+
+    @Slot(int, result=int)
+    def paletteSlotB(self, slot: int) -> int:
+        t = self._palette_mirror.get(max(1, min(7, slot)))
+        return -1 if t is None else t[2]
+
+    @Slot(int, result=bool)
+    def paletteSlotKnown(self, slot: int) -> bool:
+        return max(1, min(7, slot)) in self._palette_mirror
+
     @Slot(int, int)
     def connectAt(self, bus: int, addr: int) -> None:
         def task() -> None:
@@ -154,6 +234,8 @@ class KeyboardBackend(QObject):
             self._bus = -1
             self._addr = -1
             self.connectedChanged.emit()
+            self.effectSnapshotUpdate.emit(None)
+            self.paletteClearRequest.emit()
 
         self._worker.submit(task)
 
@@ -180,7 +262,24 @@ class KeyboardBackend(QObject):
         def task() -> None:
             if self._kb is None:
                 return
+            snap = list(self._kb.get_effect())
             self._kb.turn_off()
+            self.effectSnapshotUpdate.emit(snap)
+            self._do_inspect_emit()
+
+        self._worker.submit(task)
+
+    @Slot()
+    def powerOnReplay(self) -> None:
+        snap = self._last_effect_snapshot
+        if snap is None:
+            return
+        payload = list(snap)
+
+        def task() -> None:
+            if self._kb is None:
+                return
+            self._kb.set_effect(payload)
             self._do_inspect_emit()
 
         self._worker.submit(task)
@@ -276,15 +375,20 @@ class KeyboardBackend(QObject):
 
         self._worker.submit(task)
 
-    @Slot(int, int, int, int, int)
+    @Slot(int, int, int, int)
     def setPaletteSlotRgb(self, slot: int, r: int, g: int, b: int) -> None:
+        s = max(1, min(7, slot))
+        rgb = (
+            max(0, min(255, r)),
+            max(0, min(255, g)),
+            max(0, min(255, b)),
+        )
+
         def task() -> None:
             if self._kb is None:
                 return
-            self._kb.set_palette_color(
-                max(1, min(7, slot)),
-                (max(0, min(255, r)), max(0, min(255, g)), max(0, min(255, b))),
-            )
+            self._kb.set_palette_color(s, rgb)
+            self.paletteSlotWritten.emit(s, rgb[0], rgb[1], rgb[2])
 
         self._worker.submit(task)
 
@@ -294,6 +398,7 @@ class KeyboardBackend(QObject):
             if self._kb is None:
                 return
             self._kb.restore_default_palette()
+            self.paletteBatchReady.emit(dict(self._DEFAULT_PALETTE))
 
         self._worker.submit(task)
 
@@ -304,11 +409,16 @@ class KeyboardBackend(QObject):
         def task() -> None:
             if self._kb is None:
                 return
+            batch: dict[int, tuple[int, int, int]] = {}
             for i in range(1, 8):
-                self._kb.set_palette_color(
-                    i,
-                    (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)),
+                c = (
+                    random.randint(0, 255),
+                    random.randint(0, 255),
+                    random.randint(0, 255),
                 )
+                self._kb.set_palette_color(i, c)
+                batch[i] = c
+            self.paletteBatchReady.emit(batch)
 
         self._worker.submit(task)
 

@@ -21,6 +21,10 @@ O estilo QQC2 vem de [`src/app/qml_paths.py`](../src/app/qml_paths.py) (`org.kde
 - Preferir **`Kirigami.Theme`** a cores hex para UI cromática (texto, erros, bordas de adorno).
 - Preferir **`Kirigami.Units`** a espaçamentos mágicos soltos.
 
+## HIG / UX Kirigami (KDE)
+
+- Resumo obrigatório e checklist: [kirigami-hig-ux.mdc](kirigami-hig-ux.mdc); detalhe e links oficiais: [skill kirigami-hig-ux](../skills/kirigami-hig-ux/SKILL.md).
+
 ## TDD (gate)
 
 - Alterações relevantes a **`main.qml`** ou páginas QML partilhadas: atualizar ou adicionar teste em **`tests/`** (ex. smoke + **`objectName`** na raiz e asserções na árvore). Preferir **vermelho → verde → refactor** antes de fechar o trabalho.
