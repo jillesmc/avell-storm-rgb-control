@@ -3,10 +3,12 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import org.kde.kirigami as Kirigami
 
-RowLayout {
+GridLayout {
     id: root
 
-    spacing: Kirigami.Units.smallSpacing
+    rowSpacing: Kirigami.Units.smallSpacing
+    columnSpacing: Kirigami.Units.smallSpacing
+    columns: root.showLabel ? (root.width < Kirigami.Units.gridUnit * 28 ? 1 : 3) : (root.width < Kirigami.Units.gridUnit * 20 ? 1 : 2)
 
     property alias label: lbl.text
     /** When false, hide the leading label (e.g. when using Kirigami.FormLayout FormData.label). */
@@ -15,11 +17,13 @@ RowLayout {
     property int to: 100
     property int value: 0
     property int sliderMinimumWidth: 160
+    readonly property int sliderRowHeight: Math.round(Kirigami.Units.gridUnit * 1.5)
 
     Label {
         id: lbl
         visible: root.showLabel
-        Layout.preferredWidth: root.showLabel ? Math.round(Kirigami.Units.gridUnit * 11) : 0
+        Layout.fillWidth: root.columns === 1
+        Layout.preferredWidth: root.columns === 1 ? -1 : (root.showLabel ? Math.round(Kirigami.Units.gridUnit * 11) : 0)
         Layout.alignment: Qt.AlignVCenter
         elide: Text.ElideRight
         color: Kirigami.Theme.textColor
@@ -31,8 +35,8 @@ RowLayout {
         stepSize: 1
         value: root.value
         Layout.minimumWidth: root.sliderMinimumWidth
-        Layout.preferredHeight: Kirigami.Units.gridUnit * 1.5
-        implicitHeight: Kirigami.Units.gridUnit * 1.5
+        Layout.preferredHeight: root.sliderRowHeight
+        implicitHeight: root.sliderRowHeight
         Layout.fillWidth: true
         Layout.alignment: Qt.AlignVCenter
         onMoved: root.value = Math.round(value)

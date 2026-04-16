@@ -2,7 +2,6 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import org.kde.kirigami as Kirigami
-import org.kde.kirigami.layouts as KLayouts
 import QtQuick.Dialogs
 import components
 
@@ -22,6 +21,10 @@ Item {
     property string solidPickName: ""
 
     property int paletteMirrorTick: 0
+
+    readonly property int effectTargetWidth: Kirigami.Units.gridUnit * 10
+    readonly property int solidSwatchTargetWidth: Kirigami.Units.gridUnit * 8
+    readonly property bool narrowContent: kbScroll.availableWidth < Kirigami.Units.gridUnit * 26
 
     QtObject {
         id: gridPick
@@ -199,52 +202,68 @@ Item {
                     }
                 }
 
-                RowLayout {
+                ColumnLayout {
                     Layout.fillWidth: true
                     spacing: Kirigami.Units.smallSpacing
 
-                    SliderSpinRow {
-                        id: kbGlobalBright
-                        label: qsTr("Brightness 0–50")
-                        from: 0
-                        to: 50
-                        value: 25
+                    GridLayout {
                         Layout.fillWidth: true
-                        sliderMinimumWidth: 100
+                        columns: keyboardRoot.narrowContent ? 1 : 2
+                        columnSpacing: Kirigami.Units.smallSpacing
+                        rowSpacing: Kirigami.Units.smallSpacing
+
+                        SliderSpinRow {
+                            id: kbGlobalBright
+                            label: qsTr("Brightness 0–50")
+                            from: 0
+                            to: 50
+                            value: 25
+                            Layout.fillWidth: true
+                            Layout.minimumWidth: 0
+                            sliderMinimumWidth: 72
+                        }
+                        Button {
+                            text: qsTr("Set brightness")
+                            ToolTip.visible: hovered
+                            ToolTip.text: qsTr("Device-wide level without changing the active effect.")
+                            enabled: App.keyboard.connected
+                            Layout.alignment: keyboardRoot.narrowContent ? Qt.AlignLeft : Qt.AlignVCenter
+                            onClicked: App.keyboard.setBrightness(kbGlobalBright.value)
+                        }
                     }
-                    Button {
-                        text: qsTr("Set brightness")
-                        ToolTip.visible: hovered
-                        ToolTip.text: qsTr("Device-wide level without changing the active effect.")
-                        enabled: App.keyboard.connected
-                        onClicked: App.keyboard.setBrightness(kbGlobalBright.value)
-                    }
-                    Label {
-                        text: qsTr("Effect:")
-                    }
-                    ComboBox {
-                        id: kbHeaderEffectCombo
-                        model: App.keyboardEffectNames
-                        Layout.preferredWidth: 180
-                        Component.onCompleted: syncFromShell()
-                        onModelChanged: syncFromShell()
-                        function syncFromShell() {
-                            var names = App.keyboardEffectNames
-                            var sel = appShell.selectedKeyboardEffect
-                            for (var j = 0; j < names.length; j++) {
-                                if (names[j] === sel) {
-                                    currentIndex = j
-                                    return
+                    GridLayout {
+                        Layout.fillWidth: true
+                        columns: keyboardRoot.narrowContent ? 1 : 2
+                        columnSpacing: Kirigami.Units.smallSpacing
+                        rowSpacing: Kirigami.Units.smallSpacing
+
+                        Label {
+                            text: qsTr("Effect:")
+                        }
+                        ComboBox {
+                            id: kbHeaderEffectCombo
+                            model: App.keyboardEffectNames
+                            Layout.fillWidth: true
+                            Component.onCompleted: syncFromShell()
+                            onModelChanged: syncFromShell()
+                            function syncFromShell() {
+                                var names = App.keyboardEffectNames
+                                var sel = appShell.selectedKeyboardEffect
+                                for (var j = 0; j < names.length; j++) {
+                                    if (names[j] === sel) {
+                                        currentIndex = j
+                                        return
+                                    }
                                 }
+                                if (names.length > 0)
+                                    currentIndex = 0
                             }
-                            if (names.length > 0)
-                                currentIndex = 0
+                            onActivated: function (ix) {
+                                appShell.selectedKeyboardEffect = textAt(ix)
+                            }
+                            ToolTip.visible: hovered
+                            ToolTip.text: qsTr("Selected firmware effect (used when applying in Firmware mode).")
                         }
-                        onActivated: function (ix) {
-                            appShell.selectedKeyboardEffect = textAt(ix)
-                        }
-                        ToolTip.visible: hovered
-                        ToolTip.text: qsTr("Selected firmware effect (used when applying in Firmware mode).")
                     }
 
                     Connections {
@@ -266,14 +285,41 @@ Item {
             Layout.fillHeight: true
             clip: true
 
-            StackLayout {
-                id: kbModeStack
-                width: Math.max(kbScroll.availableWidth, 200)
-                currentIndex: keyboardRoot.subNavIndex
-                implicitHeight: {
-                    var it = kbModeStack.itemAt(kbModeStack.currentIndex)
-                    return it ? it.implicitHeight : Kirigami.Units.gridUnit * 20
-                }
+            padding: 0
+            leftPadding: 0
+            rightPadding: 0
+            topPadding: 0
+            bottomPadding: 0
+
+            ScrollBar.vertical: ScrollBar {
+                policy: ScrollBar.AsNeeded
+            }
+            ScrollBar.horizontal: ScrollBar {
+                policy: ScrollBar.AlwaysOff
+            }
+
+            /**
+             * StackLayout.implicitWidth is the max of *all* stacked children, not the visible one.
+             * Using that here widened every tab to the palette row minimum → empty band + narrow grid.
+             * Keep scroll content locked to viewport width; reflow happens inside each page.
+             */
+            Item {
+                id: kbScrollBody
+                readonly property Item currentPage: kbModeStack.itemAt(kbModeStack.currentIndex)
+                implicitHeight: currentPage ? currentPage.implicitHeight : Kirigami.Units.gridUnit * 20
+                width: kbScroll.availableWidth
+                height: Math.round(implicitHeight)
+
+                StackLayout {
+                    id: kbModeStack
+                    anchors.left: parent.left
+                    anchors.top: parent.top
+                    width: parent.width
+                    currentIndex: keyboardRoot.subNavIndex
+                    implicitHeight: {
+                        var it = kbModeStack.itemAt(kbModeStack.currentIndex)
+                        return it ? it.implicitHeight : Kirigami.Units.gridUnit * 20
+                    }
 
                 ColumnLayout {
                     spacing: Kirigami.Units.smallSpacing
@@ -282,58 +328,73 @@ Item {
                         text: qsTr("Choose effect (tap a chip)")
                         Layout.leftMargin: Kirigami.Units.smallSpacing
                     }
-                    GridView {
+                    GridLayout {
                         id: effGrid
                         objectName: "keyboardEffectGrid"
                         Layout.fillWidth: true
-                        Layout.preferredHeight: Math.ceil(App.keyboardEffectNames.length / 3) * (Kirigami.Units.gridUnit * 5 + Kirigami.Units.smallSpacing)
-                            + Kirigami.Units.smallSpacing
-                        clip: false
-                        cellWidth: Math.max(width / 3, Kirigami.Units.gridUnit * 10)
-                        cellHeight: Kirigami.Units.gridUnit * 5 + Kirigami.Units.smallSpacing
-                        model: App.keyboardEffectNames
-                        delegate: EffectCard {
-                            width: effGrid.cellWidth - 6
-                            height: effGrid.cellHeight - 6
-                            required property int index
-                            effectName: App.keyboardEffectNames[index]
-                            selected: appShell.selectedKeyboardEffect === effectName
-                            onActivated: appShell.selectedKeyboardEffect = effectName
+                        width: parent.width
+                        readonly property real contentWidth: Math.max(1, parent.width)
+                        readonly property int columnsCount: Math.max(1, Math.floor(contentWidth / keyboardRoot.effectTargetWidth))
+                        readonly property real cellWidth: Math.max(
+                            Kirigami.Units.gridUnit * 8,
+                            (contentWidth - (columnsCount - 1) * columnSpacing) / columnsCount)
+                        columns: columnsCount
+                        rowSpacing: Kirigami.Units.smallSpacing
+                        columnSpacing: Kirigami.Units.smallSpacing
+
+                        Repeater {
+                            model: App.keyboardEffectNames
+                            delegate: EffectCard {
+                                required property int index
+                                Layout.minimumWidth: 0
+                                Layout.preferredWidth: effGrid.cellWidth
+                                Layout.preferredHeight: Kirigami.Units.gridUnit * 5
+                                effectName: App.keyboardEffectNames[index]
+                                selected: appShell.selectedKeyboardEffect === effectName
+                                onActivated: appShell.selectedKeyboardEffect = effectName
+                            }
                         }
                     }
-                    KLayouts.FormLayout {
+                    ColumnLayout {
                         Layout.fillWidth: true
-                        Layout.leftMargin: Kirigami.Units.smallSpacing
-                        Layout.rightMargin: Kirigami.Units.smallSpacing
-                        wideMode: true
+                        Layout.alignment: Qt.AlignLeft | Qt.AlignTop
+                        spacing: Kirigami.Units.smallSpacing
+
+                        Label { text: qsTr("Speed (0–10):") }
                         SliderSpinRow {
                             id: effSpeedRow
                             showLabel: false
-                            Kirigami.FormData.label: qsTr("Speed (0–10):")
                             from: 0
                             to: 10
                             value: 5
                             sliderMinimumWidth: 120
+                            Layout.fillWidth: true
+                            Layout.maximumWidth: Kirigami.Units.gridUnit * 12
                         }
+
+                        Label { text: qsTr("Palette slot colour:") }
                         ComboBox {
                             id: effColor
-                            Kirigami.FormData.label: qsTr("Palette slot colour:")
                             model: App.paletteSlotColorNames
                             Layout.fillWidth: true
+                            Layout.maximumWidth: Kirigami.Units.gridUnit * 12
                             ToolTip.visible: hovered
                             ToolTip.text: qsTr("Which palette colour slot the effect uses (where supported).")
                         }
+
+                        Label { text: qsTr("Direction:") }
                         ComboBox {
                             id: effDir
-                            Kirigami.FormData.label: qsTr("Direction:")
                             model: App.directionNames
                             Layout.fillWidth: true
+                            Layout.maximumWidth: Kirigami.Units.gridUnit * 12
                             ToolTip.visible: hovered
                             ToolTip.text: qsTr("Wave / marquee direction (effects that support it).")
                         }
+
+                        Label { text: qsTr("Options:") }
                         CheckBox {
                             id: effReactive
-                            Kirigami.FormData.label: qsTr("Options:")
                             text: qsTr("Reactive")
                         }
                         CheckBox {
@@ -346,8 +407,6 @@ Item {
                 ColumnLayout {
                     spacing: Kirigami.Units.smallSpacing
                     width: parent.width
-                    Layout.leftMargin: Kirigami.Units.smallSpacing
-                    Layout.rightMargin: Kirigami.Units.smallSpacing
                     Label {
                         wrapMode: Text.WordWrap
                         Layout.fillWidth: true
@@ -361,12 +420,16 @@ Item {
                         id: solidFlow
                         Layout.fillWidth: true
                         spacing: Kirigami.Units.smallSpacing
+                        readonly property int columns: Math.max(1, Math.floor(width / keyboardRoot.solidSwatchTargetWidth))
+                        readonly property real cellSize: Math.max(
+                            Kirigami.Units.gridUnit * 6,
+                            Math.floor((Math.max(width, 1) - spacing * (columns - 1)) / columns))
                         Repeater {
                             model: App.solidColorEntries
                             delegate: Rectangle {
                                 required property var modelData
-                                width: (solidFlow.width - solidFlow.spacing * 3) / 4
-                                height: Kirigami.Units.gridUnit * 5
+                                width: solidFlow.cellSize
+                                height: solidFlow.cellSize
                                 radius: 4
                                 border.width: keyboardRoot.solidPreferNamed && keyboardRoot.solidPickName === modelData.name ? 3 : 1
                                 border.color: keyboardRoot.solidPreferNamed && keyboardRoot.solidPickName === modelData.name
@@ -398,7 +461,8 @@ Item {
                     Label {
                         text: qsTr("RGB")
                     }
-                    RowLayout {
+                    Flow {
+                        Layout.fillWidth: true
                         spacing: Kirigami.Units.smallSpacing
                         ColorWell {
                             toolTipText: qsTr("Open color picker (updates RGB spin boxes)")
@@ -447,8 +511,6 @@ Item {
                 ColumnLayout {
                     spacing: Kirigami.Units.smallSpacing
                     width: parent.width
-                    Layout.leftMargin: Kirigami.Units.smallSpacing
-                    Layout.rightMargin: Kirigami.Units.smallSpacing
                     Label {
                         wrapMode: Text.WordWrap
                         Layout.fillWidth: true
@@ -458,8 +520,10 @@ Item {
                     Label {
                         text: qsTr("Slots 1–7 (tap to select)")
                     }
-                    RowLayout {
+                    Flow {
+                        Layout.fillWidth: true
                         spacing: Kirigami.Units.smallSpacing
+                        Layout.minimumWidth: 0
                         Repeater {
                             model: [1, 2, 3, 4, 5, 6, 7]
                             delegate: Rectangle {
@@ -499,11 +563,15 @@ Item {
                             }
                         }
                     }
-                    KLayouts.FormLayout {
+                    ColumnLayout {
                         Layout.fillWidth: true
-                        wideMode: true
-                        RowLayout {
-                            Kirigami.FormData.label: qsTr("Slot + RGB:")
+                        Layout.alignment: Qt.AlignLeft | Qt.AlignTop
+                        spacing: Kirigami.Units.smallSpacing
+
+                        Label { text: qsTr("Slot + RGB:") }
+                        Flow {
+                            Layout.fillWidth: true
+                            Layout.minimumWidth: 0
                             spacing: Kirigami.Units.smallSpacing
                             SpinBox {
                                 id: palSlot
@@ -535,8 +603,10 @@ Item {
                                 onClicked: kbPaletteColorDialog.open()
                             }
                         }
-                        RowLayout {
-                            Kirigami.FormData.label: qsTr("Auxiliary:")
+
+                        Label { text: qsTr("Auxiliary:") }
+                        Flow {
+                            Layout.fillWidth: true
                             spacing: Kirigami.Units.smallSpacing
                             Button {
                                 text: qsTr("Restore default palette")
@@ -555,8 +625,6 @@ Item {
                 ColumnLayout {
                     spacing: Kirigami.Units.smallSpacing
                     width: parent.width
-                    Layout.leftMargin: Kirigami.Units.smallSpacing
-                    Layout.rightMargin: Kirigami.Units.smallSpacing
                     KeyColorGrid {
                         keyboard: App.keyboard
                         Layout.fillWidth: true
@@ -577,8 +645,6 @@ Item {
                 ColumnLayout {
                     spacing: Kirigami.Units.smallSpacing
                     width: parent.width
-                    Layout.leftMargin: Kirigami.Units.smallSpacing
-                    Layout.rightMargin: Kirigami.Units.smallSpacing
                     Label {
                         text: qsTr("These actions are independent of Apply below.")
                         font.italic: true
@@ -596,7 +662,7 @@ Item {
                         wrapMode: Text.WordWrap
                         Layout.fillWidth: true
                     }
-                    RowLayout {
+                    Flow {
                         Layout.fillWidth: true
                         SpinBox {
                             id: animLoops
@@ -648,7 +714,8 @@ Item {
                             text: qsTr("Fullscreen")
                             checked: true
                         }
-                        RowLayout {
+                        Flow {
+                            Layout.fillWidth: true
                             Label {
                                 text: qsTr("Region X Y W H")
                             }
@@ -699,8 +766,6 @@ Item {
                 ColumnLayout {
                     spacing: Kirigami.Units.smallSpacing
                     width: parent.width
-                    Layout.leftMargin: Kirigami.Units.smallSpacing
-                    Layout.rightMargin: Kirigami.Units.smallSpacing
                     RowLayout {
                         Button {
                             text: qsTr("Demo test pattern")
@@ -712,6 +777,7 @@ Item {
                         }
                     }
                 }
+            }
             }
         }
 

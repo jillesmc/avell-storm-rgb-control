@@ -261,7 +261,9 @@ Kirigami.ApplicationWindow {
                         }
                     }
 
-                    ScrollBar.vertical: ScrollBar {}
+                    ScrollBar.vertical: ScrollBar {
+                        policy: ScrollBar.AsNeeded
+                    }
                 }
 
                 Kirigami.Separator {
@@ -359,7 +361,9 @@ Kirigami.ApplicationWindow {
                     rightPadding: Kirigami.Units.mediumSpacing
                     onClicked: ListView.view.currentIndex = index
                 }
-                ScrollBar.vertical: ScrollBar {}
+                ScrollBar.vertical: ScrollBar {
+                    policy: ScrollBar.AsNeeded
+                }
 
                 Connections {
                     target: appRoot
@@ -412,7 +416,9 @@ Kirigami.ApplicationWindow {
                     rightPadding: Kirigami.Units.mediumSpacing
                     onClicked: ListView.view.currentIndex = index
                 }
-                ScrollBar.vertical: ScrollBar {}
+                ScrollBar.vertical: ScrollBar {
+                    policy: ScrollBar.AsNeeded
+                }
 
                 Connections {
                     target: appRoot

@@ -38,7 +38,7 @@ Kirigami.Page {
 
         Kirigami.Separator { Layout.fillWidth: true }
 
-        RowLayout {
+        Flow {
             Layout.fillWidth: true
             Layout.margins: Kirigami.Units.largeSpacing
             spacing: Kirigami.Units.largeSpacing
@@ -49,7 +49,6 @@ Kirigami.Page {
                 ToolTip.text: qsTr("Rescan USB for keyboard (ITE 8291) and LED bar (ITE 8233).")
                 onClicked: App.refreshDevices()
             }
-            Item { Layout.fillWidth: true }
         }
     }
 }
