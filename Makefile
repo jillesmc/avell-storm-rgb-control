@@ -7,7 +7,7 @@ GUI := avell-storm-rgb-gui
 help:
 	@echo "Targets:"
 	@echo "  make sync         - uv sync --group dev (CLI + pytest)"
-	@echo "  make sync-screen  - dev + extra screen (X11 follow-screen)"
+	@echo "  make sync-screen  - dev + extra screen (follow-screen: X11 + Wayland)"
 	@echo "  make sync-gui     - dev + extra gui (PySide6 / desktop)"
 	@echo "  make sync-all     - dev + screen + gui (full optional extras)"
 	@echo "  make lock         - uv lock"

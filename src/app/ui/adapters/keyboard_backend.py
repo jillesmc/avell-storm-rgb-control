@@ -7,6 +7,11 @@ from pathlib import Path
 from PySide6.QtCore import Property, QObject, Qt, Signal, Slot
 
 from avell_storm_rgb.application.device_facade import open_keyboard
+from avell_storm_rgb.application.screen_follow_dispatch import (
+    follow_screen_runtime_available,
+    run_screen_follow_auto,
+)
+from avell_storm_rgb.application.screen_follow_session import is_wayland_session
 from avell_storm_rgb.domain.anim_dsl import run_animation_lines
 from avell_storm_rgb.domain.keyboard_solid_colors import SOLID_COLOR_NAMES
 from avell_storm_rgb.infrastructure.usb.ite8291_usb import (
@@ -61,7 +66,8 @@ class KeyboardBackend(QObject):
 
     def __init__(self, worker: UsbWorker, parent: QObject | None = None) -> None:
         super().__init__(parent)
-        self.followScreenAvailable = True
+        self.followScreenAvailable = follow_screen_runtime_available()
+        self._follow_screen_wayland_picker = is_wayland_session()
         self._worker = worker
         self._kb = None
         self._bus: int = -1
@@ -91,12 +97,6 @@ class KeyboardBackend(QObject):
         self.paletteBatchReady.connect(
             self._on_palette_batch_ready, Qt.ConnectionType.QueuedConnection
         )
-
-        try:
-            import Xlib  # noqa: F401
-            from PIL import Image  # noqa: F401
-        except ImportError:
-            self.followScreenAvailable = False
 
     @Property(bool, notify=connectedChanged)
     def connected(self) -> bool:
@@ -139,6 +139,12 @@ class KeyboardBackend(QObject):
     @Property(bool, constant=True)
     def followScreenExtraOk(self) -> bool:
         return self.followScreenAvailable
+
+    @Property(bool, constant=True)
+    def followScreenUsesWaylandPicker(self) -> bool:
+        """True on Wayland: follow uses portal window picker (region controls are N/A)."""
+
+        return self._follow_screen_wayland_picker
 
     @Property(int, constant=True)
     def gridRows(self) -> int:
@@ -469,21 +475,19 @@ class KeyboardBackend(QObject):
                         break
                     one_pass()
 
-        self._worker.submit(task)
+        self._worker.submit(task, show_busy=forever)
 
     @Slot(bool, int, int, int, int)
     def startFollowScreen(self, fullscreen: bool, x: int, y: int, w: int, h: int) -> None:
-        from avell_storm_rgb.application.screen_follow import run_screen_follow
-
         self._follow_stop.clear()
 
         def task() -> None:
             if self._kb is None:
                 return
             if fullscreen:
-                run_screen_follow(self._kb, stop_event=self._follow_stop)
+                run_screen_follow_auto(self._kb, stop_event=self._follow_stop)
             else:
-                run_screen_follow(
+                run_screen_follow_auto(
                     self._kb,
                     offset_x=x,
                     offset_y=y,
@@ -492,7 +496,7 @@ class KeyboardBackend(QObject):
                     stop_event=self._follow_stop,
                 )
 
-        self._worker.submit(task)
+        self._worker.submit(task, show_busy=False)
 
     @Slot()
     def stopFollowOrAnimation(self) -> None:

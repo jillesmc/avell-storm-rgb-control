@@ -15,7 +15,8 @@ from avell_storm_rgb.application.device_facade import (
     open_keyboard,
     open_led_bar,
 )
-from avell_storm_rgb.application.screen_follow import run_screen_follow
+from avell_storm_rgb.application.screen_follow_dispatch import run_screen_follow_auto
+from avell_storm_rgb.application.screen_follow_session import is_wayland_session
 from avell_storm_rgb.domain.anim_dsl import run_animation_lines
 from avell_storm_rgb.domain.keyboard_solid_colors import SOLID_COLOR_NAMES
 from avell_storm_rgb.domain.ledbar_colors import parse_color, parse_palette
@@ -147,14 +148,19 @@ def _cmd_keyboard_freeze(args: argparse.Namespace) -> int:
 def _cmd_keyboard_follow_screen(args: argparse.Namespace) -> int:
     try:
         kb = _open_kb(args)
-        if args.fullscreen:
-            run_screen_follow(kb)
+        if is_wayland_session() and not args.fullscreen:
+            print(
+                "Wayland: --region is ignored; pick a window in the portal dialog.",
+                file=sys.stderr,
+            )
+        if args.fullscreen or is_wayland_session():
+            run_screen_follow_auto(kb)
         else:
             parts = [int(x) for x in args.region.split(",")]
             if len(parts) != 4:
                 print("region must be x,y,width,height", file=sys.stderr)
                 return 1
-            run_screen_follow(kb, offset_x=parts[0], offset_y=parts[1], width=parts[2], height=parts[3])
+            run_screen_follow_auto(kb, offset_x=parts[0], offset_y=parts[1], width=parts[2], height=parts[3])
     except ImportError as e:
         print(
             "follow-screen needs optional dependencies: uv sync --extra screen "
@@ -332,7 +338,10 @@ def _build_parser() -> argparse.ArgumentParser:
         _handler=_cmd_keyboard_freeze
     )
 
-    k_fs = kb_sub.add_parser("follow-screen", help="Map screen to keys (X11; needs extra [screen])")
+    k_fs = kb_sub.add_parser(
+        "follow-screen",
+        help="Map display/window to keys (X11 region or Wayland portal; needs extra [screen])",
+    )
     g3 = k_fs.add_mutually_exclusive_group(required=True)
     g3.add_argument("--fullscreen", action="store_true")
     g3.add_argument("--region", metavar="X,Y,W,H")

@@ -22,13 +22,16 @@ make test
 make run ARGS='device list'
 
 # Optional extras (same as uv `--extra`):
-make sync-screen   # X11 follow-screen
+make sync-screen   # follow-screen (X11 + Wayland portal deps)
 make sync-gui      # PySide6 desktop GUI (+ QML tests)
 make sync-all      # screen + gui
 make gui           # launch GUI (after sync-gui)
 ```
 
-Optional X11 “follow screen” mode:
+Optional **follow screen** mode (`[screen]` extra):
+
+- **X11:** `python-xlib` + Pillow — samples the root window (optional region).
+- **Wayland:** Pillow + **`pipewire-capture`** (uses **xdg-desktop-portal** ScreenCast and a **window picker**; not whole-desktop capture).
 
 ```bash
 make sync-screen
@@ -65,7 +68,11 @@ make sync-gui && make gui
 
 **Logs (stderr):** every failed USB/background task is logged. Use **`--verbose`** / **`--debug`** (or environment **`AVELL_STORM_RGB_LOG=debug`**) for **DEBUG** level and **full tracebacks** on failures.
 
-**Follow-screen (`[screen]` extra):** uses **X11** screen capture (`Xlib`). Errors such as **`BadMatch`** often mean **Wayland**, **XWayland**, or a **region outside the screen** — prefer an X11 session, fullscreen capture, or disable follow-screen. The app now clamps the capture rectangle where possible and surfaces a clearer error message.
+**Follow-screen (`[screen]` extra):** on **X11**, uses `Xlib` root capture ( **`BadMatch`** often means XWayland, invalid region, or similar). On **Wayland**, uses **portal + PipeWire** via `pipewire-capture`: you must **pick a window** in the system dialog; colours follow that window. Requires a working **xdg-desktop-portal** backend (e.g. **xdg-desktop-portal-kde** on Plasma) and **PipeWire**.
+
+**Wayland smoke (manual):** after `uv sync --extra screen`, on a Wayland Plasma session run `avell-storm-rgb keyboard follow-screen --fullscreen`, accept the portal prompt, choose a window, confirm key colours track it; **Ctrl+C** to stop.
+
+**GUI:** follow-screen and “loop forever” animation run **without** blocking the global USB busy overlay so you can use **Stop follow / animation** to end capture and clear the portal screencast indicator.
 
 ## Usage (overview)
 
@@ -91,7 +98,7 @@ avell-storm-rgb keyboard palette random
 avell-storm-rgb keyboard palette set-slot 3 '255,13,14'
 avell-storm-rgb keyboard demo-test-pattern
 avell-storm-rgb keyboard freeze-animation
-avell-storm-rgb keyboard follow-screen --fullscreen    # needs: uv sync --extra screen
+avell-storm-rgb keyboard follow-screen --fullscreen    # X11: full screen; Wayland: window picker
 avell-storm-rgb keyboard play-animation --file path/to/script --loop 3
 avell-storm-rgb keyboard play-animation --file path/to/script --forever
 avell-storm-rgb keyboard inspect --fw-version --brightness --power

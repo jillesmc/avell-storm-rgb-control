@@ -1,10 +1,11 @@
-"""Follow screen colors on keyboard (X11 + Pillow). Optional dependency."""
+"""Follow screen colours on keyboard via X11 capture (Xlib + Pillow). Optional [screen] extra."""
 
 from __future__ import annotations
 
 import threading
 import time
 
+from avell_storm_rgb.application.screen_follow_frame import apply_pil_rgb_image_to_keyboard
 from avell_storm_rgb.infrastructure.usb.ite8291_usb import Ite8291UsbDevice
 
 
@@ -48,12 +49,7 @@ def run_screen_follow(
                 f"X error: {e}"
             ) from e
         im = Image.frombytes("RGB", (w, h), raw.data, "raw", "BGRX")
-        im = im.resize((16, 6), resample=Image.Resampling.BOX)
-        color_map: dict[tuple[int, int], tuple[int, int, int]] = {}
-        for row in range(6):
-            for col in range(16):
-                color_map[(row, col)] = im.getpixel((col, 5 - row))
-        keyboard.set_key_colors(color_map, enable_user_mode_flag=False)
+        apply_pil_rgb_image_to_keyboard(keyboard, im, enable_user_mode_flag=False)
         now = time.monotonic()
         if now - last_draw <= 0.1:
             wait = 0.1 - (now - last_draw)

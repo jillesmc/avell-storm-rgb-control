@@ -16,7 +16,7 @@ CLI/API in this repo: `avell-storm-rgb` (see README). Each row should remain rea
 | Demo test pattern | 6-step sequence | `keyboard demo-test-pattern` |
 | Freeze animation | speed→11 | `keyboard freeze-animation` |
 | Per-key colors + animation DSL | 6×21 grid; file/stdin | `keyboard play-animation …` |
-| Follow screen (X11) | 16×6 sample, optional region | `keyboard follow-screen …` (extra `[screen]`) |
+| Follow screen | 16×6 sample; X11 optional region; Wayland portal window picker | `keyboard follow-screen …` (extra `[screen]`) |
 | Inspect | FW version, brightness, on/off | `keyboard inspect …` |
 | List compatible keyboards | USB enumeration | `device list --kind keyboard` |
 | Debug USB traffic | stderr | global `--debug` |

@@ -24,15 +24,23 @@ class UsbWorker(QObject):
         super().__init__(parent)
         self._pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="usb")
 
-    def submit(self, fn: Callable[[], Any]) -> None:
-        self.opStarted.emit()
+    def submit(self, fn: Callable[[], Any], *, show_busy: bool = True) -> None:
+        """Queue ``fn`` on the USB thread.
+
+        Long-running tasks (e.g. follow-screen) should pass ``show_busy=False`` so the
+        global BusyOverlay does not block the GUI until the task returns.
+        """
+        if show_busy:
+            self.opStarted.emit()
 
         def run() -> None:
             try:
                 fn()
-                self.opFinished.emit()
             except Exception as e:
                 self.opFailed.emit(log_usb_failure(e))
+            else:
+                if show_busy:
+                    self.opFinished.emit()
 
         self._pool.submit(run)
 

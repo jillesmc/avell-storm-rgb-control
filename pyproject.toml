@@ -27,7 +27,12 @@ dependencies = ["pyusb>=1.2.1"]
 # Desktop GUI: also needs Kirigami 6 QML from the OS (e.g. Arch kirigami, KDE Flatpak runtime).
 # PyPI wheels do not ship org.kde.kirigami; set QML_IMPORT_PATH if Qt's path is nonstandard.
 gui = ["PySide6>=6.6"]
-screen = ["python-xlib>=0.33", "Pillow>=10.0.0"]
+screen = [
+  "python-xlib>=0.33",
+  "Pillow>=10.0.0",
+  "pipewire-capture>=0.2.9",
+  "numpy>=1.24",
+]
 
 [project.scripts]
 avell-storm-rgb = "avell_storm_rgb.adapters.cli.main:main"
@@ -47,4 +52,4 @@ markers = [
 ]
 
 [dependency-groups]
-dev = ["pytest>=8.0.0"]
+dev = ["pytest>=8.0.0", "Pillow>=10.0.0"]

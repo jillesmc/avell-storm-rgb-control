@@ -711,18 +711,26 @@ Item {
                     }
                     Kirigami.Heading {
                         level: 4
-                        text: qsTr("Follow screen (X11)")
+                        text: qsTr("Follow screen")
                         visible: App.keyboard.followScreenExtraOk
+                    }
+                    Label {
+                        visible: App.keyboard.followScreenExtraOk && App.keyboard.followScreenUsesWaylandPicker
+                        text: qsTr("Wayland: a window picker will open; colors follow the selected window (not the whole desktop).")
+                        wrapMode: Text.WordWrap
+                        Layout.fillWidth: true
                     }
                     ColumnLayout {
                         visible: App.keyboard.followScreenExtraOk
                         Layout.fillWidth: true
                         CheckBox {
                             id: folFull
-                            text: qsTr("Fullscreen")
+                            text: qsTr("Fullscreen / full capture region (X11)")
                             checked: true
+                            enabled: !App.keyboard.followScreenUsesWaylandPicker
                         }
                         Flow {
+                            visible: !App.keyboard.followScreenUsesWaylandPicker
                             Layout.fillWidth: true
                             Label {
                                 text: qsTr("Region X Y W H")
@@ -765,7 +773,7 @@ Item {
                     }
                     Label {
                         visible: !App.keyboard.followScreenExtraOk
-                        text: qsTr("Follow screen needs: uv sync --extra screen")
+                        text: qsTr("Follow screen needs: uv sync --extra screen (X11: Xlib+Pillow; Wayland: portal+pipewire-capture)")
                         wrapMode: Text.WordWrap
                         Layout.fillWidth: true
                     }
