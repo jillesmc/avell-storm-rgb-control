@@ -219,9 +219,17 @@ Item {
 
             ScrollBar.vertical: ScrollBar {
                 policy: ScrollBar.AsNeeded
+                parent: ledScroll
+                anchors.top: parent.top
+                anchors.bottom: parent.bottom
+                anchors.right: parent.right
             }
             ScrollBar.horizontal: ScrollBar {
                 policy: ScrollBar.AlwaysOff
+                parent: ledScroll
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.bottom: parent.bottom
             }
 
             Item {

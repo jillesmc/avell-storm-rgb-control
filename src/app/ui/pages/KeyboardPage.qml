@@ -293,9 +293,17 @@ Item {
 
             ScrollBar.vertical: ScrollBar {
                 policy: ScrollBar.AsNeeded
+                parent: kbScroll
+                anchors.top: parent.top
+                anchors.bottom: parent.bottom
+                anchors.right: parent.right
             }
             ScrollBar.horizontal: ScrollBar {
                 policy: ScrollBar.AlwaysOff
+                parent: kbScroll
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.bottom: parent.bottom
             }
 
             /**
