@@ -918,6 +918,13 @@ Item {
                         level: 4
                         text: qsTr("Software (user): per-key grid")
                     }
+                    Label {
+                        wrapMode: Text.WordWrap
+                        Layout.fillWidth: true
+                        text: qsTr("Each cell matches the keyboard as you see it: row 1 is the top (number row), column 1 is the left. Full keyboard is %1 rows × %2 columns (same matrix as animation DSL and screen follow).")
+                            .arg(App.keyboard.gridRows).arg(App.keyboard.gridCols)
+                        font.italic: true
+                    }
                     KeyColorGrid {
                         keyboard: App.keyboard
                         Layout.fillWidth: true

@@ -17,6 +17,7 @@ from avell_storm_rgb.application.screen_follow_dispatch import (
 from avell_storm_rgb.application.screen_follow_session import is_wayland_session
 from avell_storm_rgb.domain.anim_dsl import run_animation_lines
 from avell_storm_rgb.domain.keyboard_solid_colors import SOLID_COLOR_NAMES
+from avell_storm_rgb.domain.per_key_grid import color_map_ui_to_device
 from avell_storm_rgb.infrastructure.usb.ite8291_usb import (
     KEYBOARD_DIRECTIONS,
     KEYBOARD_EFFECTS,
@@ -97,6 +98,7 @@ class KeyboardBackend(QObject):
         self._brightness = 0
         self._off = True
         self._follow_stop = threading.Event()
+        #: (ui_row, col) with ui_row 0 = top of keyboard (number row); see ``per_key_grid``.
         self._key_colors: dict[tuple[int, int], tuple[int, int, int]] = {}
         self._key_grid_epoch = 0
         self._last_effect_snapshot: list[int] | None = None
@@ -197,6 +199,7 @@ class KeyboardBackend(QObject):
 
     @Slot(int, int, result=str)
     def keyCellHex(self, row: int, col: int) -> str:
+        """``row``/``col`` are UI coordinates (row 0 = top of keyboard)."""
         t = self._key_colors.get((row, col))
         if t is None:
             return "#353535"
@@ -653,7 +656,7 @@ class KeyboardBackend(QObject):
             def task() -> None:
                 if self._kb is None:
                     return
-                self._kb.set_key_colors(dict(self._key_colors))
+                self._kb.set_key_colors(color_map_ui_to_device(dict(self._key_colors)))
 
             self._worker.submit(task)
 
@@ -665,7 +668,7 @@ class KeyboardBackend(QObject):
             if self._kb is None:
                 return
             self._kb.set_key_colors(
-                dict(self._key_colors),
+                color_map_ui_to_device(dict(self._key_colors)),
                 enable_user_mode_flag=enable_user_mode,
             )
 

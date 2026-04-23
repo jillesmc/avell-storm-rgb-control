@@ -162,6 +162,8 @@ O separador lateral (`keyboardSubNavIndex` 0…6) corresponde ao `StackLayout` i
 
 **Bloco Device (brilho)** no topo do scroll do teclado: **oculto** nas abas **Palette slot configuration** e **Tools** (índices 1 e 6); visível nas restantes.
 
+**Grelha per-key na GUI:** a matriz mostrada segue o teclado **visto de cima** — linha 1 = topo (fileira dos números), coluna 1 = esquerda. No protocolo USB, o índice de linha do `ite8291r3-ctl` / `set_key_colors` tem **linha 0 na base** (como no `screen_mode` do upstream, `getpixel((col, 5 - row))`). O backend (`color_map_ui_to_device` em `per_key_grid.py`) faz a conversão ao aplicar a grelha. **Animação DSL** (`pos row col …`) e **follow-screen** mantêm coordenadas no **espaço do dispositivo** (igual ao `ite8291r3-ctl`), por compatibilidade com scripts e referências existentes.
+
 **Controlos do separador 0 (efeito firmware) sempre visíveis:** velocidade, combo “cor da paleta”, direção, reactive, save. O Python **filtra** com `EFFECT_KWARGS`; para muitos efeitos, **direção ou reactive não fazem nada**, e para `rainbow` **velocidade e cor de slot** não entram no pacote.
 
 **Lacuna de UX/documentação:** o tooltip da direção na UI menciona *marquee*, mas **`marquee` não envia direção** no protocolo deste repo (alinha à matriz upstream: direção “—” para marquee). O utilizador pode achar que a direção afeta `marquee`, mas o valor é ignorado.

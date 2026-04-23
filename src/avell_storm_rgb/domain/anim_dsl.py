@@ -5,6 +5,8 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable
 from typing import TypeVar
 
+from avell_storm_rgb.infrastructure.usb.ite8291_usb import NUM_COLS, NUM_ROWS
+
 T = TypeVar("T")
 
 
@@ -30,7 +32,7 @@ def run_animation_lines(
         new_map: dict[tuple[int, int], tuple[int, int, int]] = {}
         for (row, col), color in color_map.items():
             nr, nc = row + rowdiff, col + coldiff
-            if 0 <= nr <= 5 and 0 <= nc <= 15:
+            if 0 <= nr < NUM_ROWS and 0 <= nc < NUM_COLS:
                 new_map[(nr, nc)] = color
         color_map = new_map
 

@@ -39,7 +39,8 @@ ColumnLayout {
                     anchors.fill: parent
                     hoverEnabled: true
                     ToolTip.visible: containsMouse
-                    ToolTip.text: qsTr("Row %1, col %2 — click to pick color").arg(row).arg(col)
+                    ToolTip.text: qsTr("Row %1 (from top), column %2 (from left) — click to pick color")
+                        .arg(row + 1).arg(col + 1)
                     onClicked: root.cellClicked(row, col)
                 }
             }
