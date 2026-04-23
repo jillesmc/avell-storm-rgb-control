@@ -7,7 +7,8 @@ import components
 
 /**
  * Keyboard device UI: primary/secondary headers, scroll body by subNavIndex, fixed footer.
- * subNavIndex is driven by the shell middle column (0–5).
+ * subNavIndex is driven by the shell middle column (0–6):
+ * 0 Firmware, 1 Palette, 2 Solid, 3 Per-key, 4 Animation file, 5 Follow screen, 6 Tools.
  */
 Item {
     id: keyboardRoot
@@ -16,15 +17,230 @@ Item {
     /** Bound from main.qml middle nav */
     property int subNavIndex: 0
 
+    readonly property int pageFirmware: 0
+    readonly property int pagePalette: 1
+    readonly property int pageSolid: 2
+    readonly property int pagePerKey: 3
+    readonly property int pageAnimation: 4
+    readonly property int pageFollow: 5
+    readonly property int pageTools: 6
+    /** Match palette slot swatch size (gridUnit * 5). */
+    readonly property int solidSwatchCell: Kirigami.Units.gridUnit * 5
+    readonly property bool showDeviceBrightnessBlock: keyboardRoot.subNavIndex !== keyboardRoot.pagePalette
+        && keyboardRoot.subNavIndex !== keyboardRoot.pageTools
+
     /** Solid apply: named vs RGB (manual RGB clears named). */
     property bool solidPreferNamed: true
     property string solidPickName: ""
 
     property int paletteMirrorTick: 0
+    /** Closed-state label for firmware colour combo (updated only on index / palette change). */
+    property string effColorSummaryText: ""
 
-    readonly property int effectTargetWidth: Kirigami.Units.gridUnit * 10
-    readonly property int solidSwatchTargetWidth: Kirigami.Units.gridUnit * 8
-    readonly property bool narrowContent: kbScroll.availableWidth < Kirigami.Units.gridUnit * 26
+    /** True after the user changes a firmware control; cleared after a debounced apply. */
+    property bool firmwareEffectDirty: false
+    /** Suppress one-shot apply when wiring initial combo indices before user interaction. */
+    property bool firmwareApplySuppressed: true
+
+    /** Opt-in via env ``AVELL_DEBUG_FIRMWARE_UI`` (see ``App.debugFirmwareUi``). */
+    readonly property bool fwDiag: App.debugFirmwareUi
+    property int _fwDiagReqN: 0
+    property int _fwDiagPushN: 0
+    property int _fwDiagScrollBodyWidthTicks: 0
+    property int _fwDiagPaletteTicks: 0
+
+    function fwDiagLog(msg) {
+        if (!keyboardRoot.fwDiag)
+            return
+        console.log("[FirmwareUI]", msg)
+    }
+
+    function brightnessPercentToFw(percent) {
+        return Math.max(0, Math.min(50, Math.round(percent * 50 / 100)))
+    }
+    function brightnessFwToPercent(fw) {
+        return Math.max(0, Math.min(100, Math.round(fw * 100 / 50)))
+    }
+
+    function firmwareColorKeyAt(index) {
+        var rows = App.firmwarePaletteColorChoices
+        if (!rows || index < 0 || index >= rows.length)
+            return "random"
+        return rows[index].key
+    }
+
+    function firmwareColorTitleRow(md) {
+        if (!md)
+            return ""
+        if (md.palette_slot >= 1 && md.palette_slot <= 7)
+            return qsTr("Slot %1").arg(md.palette_slot)
+        if (md.key === "random")
+            return qsTr("Random")
+        return qsTr("None")
+    }
+
+    function _byteHex(v) {
+        var s = Math.round(v).toString(16)
+        return s.length === 1 ? "0" + s : s
+    }
+
+    function firmwareColorHexRow(md) {
+        var tick = keyboardRoot.paletteMirrorTick
+        void tick
+        if (!md || md.palette_slot < 1 || md.palette_slot > 7)
+            return "—"
+        var r = App.keyboard.paletteSlotR(md.palette_slot)
+        if (r < 0)
+            return "—"
+        return "#" + _byteHex(r) + _byteHex(App.keyboard.paletteSlotG(md.palette_slot))
+            + _byteHex(App.keyboard.paletteSlotB(md.palette_slot))
+    }
+
+    function firmwareColorSwatch(md) {
+        var tick = keyboardRoot.paletteMirrorTick
+        void tick
+        if (!md || md.palette_slot < 1 || md.palette_slot > 7) {
+            if (md && md.key === "random")
+                return Kirigami.Theme.highlightColor
+            return Kirigami.ColorUtils.linearInterpolation(
+                Kirigami.Theme.backgroundColor,
+                Kirigami.Theme.textColor,
+                0.15)
+        }
+        var r = App.keyboard.paletteSlotR(md.palette_slot)
+        if (r < 0)
+            return Kirigami.Theme.backgroundColor
+        return Qt.rgba(r / 255, App.keyboard.paletteSlotG(md.palette_slot) / 255,
+                       App.keyboard.paletteSlotB(md.palette_slot) / 255, 1)
+    }
+
+    function firmwareColorComboDisplay(index) {
+        var rows = App.firmwarePaletteColorChoices
+        var tick = keyboardRoot.paletteMirrorTick
+        void tick
+        if (!rows || index < 0 || index >= rows.length)
+            return ""
+        var md = rows[index]
+        if (md.palette_slot >= 1 && md.palette_slot <= 7)
+            return firmwareColorTitleRow(md) + " · " + firmwareColorHexRow(md)
+        return firmwareColorTitleRow(md)
+    }
+
+    function syncFirmwareColorSummaryText() {
+        keyboardRoot.effColorSummaryText = keyboardRoot.firmwareColorComboDisplay(effColor.currentIndex)
+    }
+
+    Timer {
+        id: fwEffectApplyTimer
+        interval: 200
+        repeat: false
+        onTriggered: {
+            if (keyboardRoot.fwDiag) {
+                keyboardRoot.fwDiagLog("fwEffectApplyTimer fired dirty=" + keyboardRoot.firmwareEffectDirty
+                    + " subNav=" + keyboardRoot.subNavIndex + " connected=" + App.keyboard.connected)
+            }
+            if (!keyboardRoot.firmwareEffectDirty)
+                return
+            if (keyboardRoot.subNavIndex !== keyboardRoot.pageFirmware || !App.keyboard.connected) {
+                keyboardRoot.firmwareEffectDirty = false
+                return
+            }
+            keyboardRoot.pushFirmwareEffectToDevice()
+            keyboardRoot.firmwareEffectDirty = false
+        }
+    }
+
+    Timer {
+        id: fwDiagSummaryTimer
+        interval: 1000
+        repeat: true
+        running: keyboardRoot.fwDiag && keyboardRoot.subNavIndex === keyboardRoot.pageFirmware
+        property int _r0: 0
+        property int _p0: 0
+        property int _w0: 0
+        property int _pal0: 0
+        onTriggered: {
+            if (!keyboardRoot.fwDiag)
+                return
+            var r = keyboardRoot._fwDiagReqN
+            var p = keyboardRoot._fwDiagPushN
+            var w = keyboardRoot._fwDiagScrollBodyWidthTicks
+            var pal = keyboardRoot._fwDiagPaletteTicks
+            console.log("[FirmwareUI/summary 1s] req+" + (r - _r0) + " push+" + (p - _p0)
+                + " scrollBodyWidth+" + (w - _w0) + " paletteMirror+" + (pal - _pal0)
+                + " pageW=" + keyboardRoot.width + " scrollBodyW=" + kbScrollBody.width
+                + " kbAvailW=" + kbScroll.availableWidth + " connected=" + App.keyboard.connected)
+            _r0 = r
+            _p0 = p
+            _w0 = w
+            _pal0 = pal
+        }
+    }
+
+    property bool solidApplyPending: false
+    Timer {
+        id: solidApplyTimer
+        interval: 200
+        repeat: false
+        onTriggered: {
+            if (!keyboardRoot.solidApplyPending)
+                return
+            if (keyboardRoot.subNavIndex !== keyboardRoot.pageSolid || !App.keyboard.connected) {
+                keyboardRoot.solidApplyPending = false
+                return
+            }
+            keyboardRoot.pushSolidToDevice()
+            keyboardRoot.solidApplyPending = false
+        }
+    }
+
+    function requestSolidApply() {
+        if (keyboardRoot.subNavIndex !== keyboardRoot.pageSolid || !App.keyboard.connected)
+            return
+        keyboardRoot.solidApplyPending = true
+        solidApplyTimer.restart()
+    }
+
+    function pushSolidToDevice() {
+        if (keyboardRoot.solidPreferNamed && keyboardRoot.solidPickName.length > 0)
+            App.keyboard.setSolidNamed(keyboardRoot.solidPickName)
+        else
+            App.keyboard.setSolidRgb(sr.value, sg.value, sb.value)
+    }
+
+    /** Call only from explicit user edits (chips, combos, speed, checkboxes). */
+    function requestFirmwareEffectApply() {
+        if (keyboardRoot.firmwareApplySuppressed)
+            return
+        if (keyboardRoot.subNavIndex !== keyboardRoot.pageFirmware || !App.keyboard.connected)
+            return
+        keyboardRoot.firmwareEffectDirty = true
+        if (keyboardRoot.fwDiag) {
+            keyboardRoot._fwDiagReqN++
+            keyboardRoot.fwDiagLog("requestFirmwareEffectApply #" + keyboardRoot._fwDiagReqN)
+        }
+        fwEffectApplyTimer.restart()
+    }
+
+    function pushFirmwareEffectToDevice() {
+        if (keyboardRoot.subNavIndex !== keyboardRoot.pageFirmware || !App.keyboard.connected)
+            return
+        if (keyboardRoot.fwDiag) {
+            keyboardRoot._fwDiagPushN++
+            keyboardRoot.fwDiagLog("pushFirmwareEffectToDevice #" + keyboardRoot._fwDiagPushN
+                + " effect=" + appShell.selectedKeyboardEffect)
+        }
+        var bFw = keyboardRoot.brightnessPercentToFw(kbDeviceBright.value)
+        App.keyboard.applyEffect(
+            appShell.selectedKeyboardEffect,
+            effSpeedRow.value,
+            bFw,
+            keyboardRoot.firmwareColorKeyAt(effColor.currentIndex),
+            effDir.currentText,
+            effReactive.checked,
+            effSave.checked
+        )
+    }
 
     QtObject {
         id: gridPick
@@ -36,6 +252,17 @@ Item {
         target: App.keyboard
         function onPaletteMirrorChanged() {
             keyboardRoot.paletteMirrorTick++
+            if (keyboardRoot.fwDiag)
+                keyboardRoot._fwDiagPaletteTicks++
+            keyboardRoot.syncFirmwareColorSummaryText()
+        }
+        function onConnectedChanged() {
+            if (!App.keyboard.connected) {
+                fwEffectApplyTimer.stop()
+                solidApplyTimer.stop()
+                keyboardRoot.firmwareEffectDirty = false
+                keyboardRoot.solidApplyPending = false
+            }
         }
     }
 
@@ -62,6 +289,7 @@ Item {
             sr.value = Math.round(c.r * 255)
             sg.value = Math.round(c.g * 255)
             sb.value = Math.round(c.b * 255)
+            keyboardRoot.requestSolidApply()
         }
     }
 
@@ -91,24 +319,13 @@ Item {
 
     function applyKeyboardConfiguration() {
         var m = keyboardRoot.subNavIndex
-        if (m === 0) {
-            App.keyboard.applyEffect(
-                appShell.selectedKeyboardEffect,
-                effSpeedRow.value,
-                kbGlobalBright.value,
-                effColor.currentText,
-                effDir.currentText,
-                effReactive.checked,
-                effSave.checked
-            )
-        } else if (m === 1) {
-            if (keyboardRoot.solidPreferNamed && keyboardRoot.solidPickName.length > 0)
-                App.keyboard.setSolidNamed(keyboardRoot.solidPickName)
-            else
-                App.keyboard.setSolidRgb(sr.value, sg.value, sb.value)
-        } else if (m === 2) {
+        if (m === keyboardRoot.pageFirmware) {
+            keyboardRoot.pushFirmwareEffectToDevice()
+        } else if (m === keyboardRoot.pagePalette) {
             App.keyboard.setPaletteSlotRgb(palSlot.value, pr.value, pg.value, pb.value)
-        } else if (m === 3) {
+        } else if (m === keyboardRoot.pageSolid) {
+            keyboardRoot.pushSolidToDevice()
+        } else if (m === keyboardRoot.pagePerKey) {
             App.keyboard.applyKeyGrid(true)
         }
     }
@@ -126,15 +343,19 @@ Item {
     function kbInfoSummary() {
         if (!App.keyboard.connected)
             return qsTr("Not connected. Turn on the sidebar switch or choose a device on Devices.")
-        return qsTr("FW: %1 · Brightness: %2 · %3")
+        return qsTr("FW: %1 · Brightness: %2% · %3")
             .arg(App.keyboard.fwVersion)
-            .arg(App.keyboard.brightnessRead)
+            .arg(keyboardRoot.brightnessFwToPercent(App.keyboard.brightnessRead))
             .arg(App.keyboard.isOff ? qsTr("Off") : qsTr("On"))
     }
 
     Component.onCompleted: {
         if (keyboardRoot.solidPickName.length === 0 && App.solidColorNames.length > 0)
             keyboardRoot.solidPickName = App.solidColorNames[0]
+        Qt.callLater(function () {
+            keyboardRoot.firmwareApplySuppressed = false
+            keyboardRoot.syncFirmwareColorSummaryText()
+        })
     }
 
     Item {
@@ -202,77 +423,6 @@ Item {
                     }
                 }
 
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    spacing: Kirigami.Units.smallSpacing
-
-                    GridLayout {
-                        Layout.fillWidth: true
-                        columns: keyboardRoot.narrowContent ? 1 : 2
-                        columnSpacing: Kirigami.Units.smallSpacing
-                        rowSpacing: Kirigami.Units.smallSpacing
-
-                        SliderSpinRow {
-                            id: kbGlobalBright
-                            label: qsTr("Brightness 0–50")
-                            from: 0
-                            to: 50
-                            value: 25
-                            Layout.fillWidth: true
-                            Layout.minimumWidth: 0
-                            sliderMinimumWidth: 72
-                        }
-                        Button {
-                            text: qsTr("Set brightness")
-                            ToolTip.visible: hovered
-                            ToolTip.text: qsTr("Device-wide level without changing the active effect.")
-                            enabled: App.keyboard.connected
-                            Layout.alignment: keyboardRoot.narrowContent ? Qt.AlignLeft : Qt.AlignVCenter
-                            onClicked: App.keyboard.setBrightness(kbGlobalBright.value)
-                        }
-                    }
-                    GridLayout {
-                        Layout.fillWidth: true
-                        columns: keyboardRoot.narrowContent ? 1 : 2
-                        columnSpacing: Kirigami.Units.smallSpacing
-                        rowSpacing: Kirigami.Units.smallSpacing
-
-                        Label {
-                            text: qsTr("Effect:")
-                        }
-                        ComboBox {
-                            id: kbHeaderEffectCombo
-                            model: App.keyboardEffectNames
-                            Layout.fillWidth: true
-                            Component.onCompleted: syncFromShell()
-                            onModelChanged: syncFromShell()
-                            function syncFromShell() {
-                                var names = App.keyboardEffectNames
-                                var sel = appShell.selectedKeyboardEffect
-                                for (var j = 0; j < names.length; j++) {
-                                    if (names[j] === sel) {
-                                        currentIndex = j
-                                        return
-                                    }
-                                }
-                                if (names.length > 0)
-                                    currentIndex = 0
-                            }
-                            onActivated: function (ix) {
-                                appShell.selectedKeyboardEffect = textAt(ix)
-                            }
-                            ToolTip.visible: hovered
-                            ToolTip.text: qsTr("Selected firmware effect (used when applying in Firmware mode).")
-                        }
-                    }
-
-                    Connections {
-                        target: appShell
-                        function onSelectedKeyboardEffectChanged() {
-                            kbHeaderEffectCombo.syncFromShell()
-                        }
-                    }
-                }
             }
 
         Kirigami.Separator {
@@ -287,11 +437,19 @@ Item {
 
             padding: 0
             leftPadding: 0
-            rightPadding: 0
+            /**
+             * Fixed right gutter for the vertical scrollbar. Toggling padding from contentHeight
+             * near the threshold changes availableWidth and can reflow content → layout thrash / freeze.
+             */
+            readonly property int _kbScrollRightGutter: Math.max(
+                Kirigami.Units.gridUnit,
+                Math.ceil(kbVBar.implicitWidth + Kirigami.Units.smallSpacing))
+            rightPadding: _kbScrollRightGutter
             topPadding: 0
             bottomPadding: 0
 
             ScrollBar.vertical: ScrollBar {
+                id: kbVBar
                 policy: ScrollBar.AsNeeded
                 parent: kbScroll
                 anchors.top: parent.top
@@ -314,52 +472,92 @@ Item {
             Item {
                 id: kbScrollBody
                 readonly property Item currentPage: kbModeStack.itemAt(kbModeStack.currentIndex)
-                implicitHeight: currentPage ? currentPage.implicitHeight : Kirigami.Units.gridUnit * 20
+                implicitHeight: kbOuterColumn.implicitHeight
                 width: kbScroll.availableWidth
                 height: Math.round(implicitHeight)
+                onWidthChanged: {
+                    if (keyboardRoot.fwDiag && keyboardRoot.subNavIndex === keyboardRoot.pageFirmware)
+                        keyboardRoot._fwDiagScrollBodyWidthTicks++
+                }
 
-                StackLayout {
-                    id: kbModeStack
-                    anchors.left: parent.left
-                    anchors.top: parent.top
+                ColumnLayout {
+                    id: kbOuterColumn
                     width: parent.width
-                    currentIndex: keyboardRoot.subNavIndex
-                    implicitHeight: {
-                        var it = kbModeStack.itemAt(kbModeStack.currentIndex)
-                        return it ? it.implicitHeight : Kirigami.Units.gridUnit * 20
+                    spacing: Kirigami.Units.mediumSpacing
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: Kirigami.Units.smallSpacing
+                        visible: keyboardRoot.showDeviceBrightnessBlock
+
+                        Kirigami.Heading {
+                            level: 4
+                            text: qsTr("Device")
+                        }
+                        Label {
+                            wrapMode: Text.WordWrap
+                            Layout.fillWidth: true
+                            text: qsTr("Backlight level shown as 0–100% (device uses 0–50). Applies immediately; if a firmware effect is active, it is re-sent so the controller stays consistent.")
+                            font.italic: true
+                        }
+                        SliderSpinRow {
+                            id: kbDeviceBright
+                            label: qsTr("Brightness (%)")
+                            from: 0
+                            to: 100
+                            value: 50
+                            Layout.fillWidth: true
+                            Layout.minimumWidth: 0
+                            sliderMinimumWidth: 72
+                            enabled: App.keyboard.connected
+                            onUserAdjusted: function (v) {
+                                App.keyboard.requestBrightnessFromUi(keyboardRoot.brightnessPercentToFw(v))
+                            }
+                        }
+
+                        Kirigami.Separator {
+                            Layout.fillWidth: true
+                        }
                     }
+
+                    StackLayout {
+                        id: kbModeStack
+                        Layout.fillWidth: true
+                        currentIndex: keyboardRoot.subNavIndex
+                        implicitHeight: {
+                            var it = kbModeStack.itemAt(kbModeStack.currentIndex)
+                            return it ? it.implicitHeight : Kirigami.Units.gridUnit * 20
+                        }
 
                 ColumnLayout {
                     spacing: Kirigami.Units.smallSpacing
+                    Layout.fillWidth: true
                     width: parent.width
+                    Kirigami.Heading {
+                        level: 4
+                        text: qsTr("Firmware (controller)")
+                    }
                     Label {
                         text: qsTr("Choose effect (tap a chip)")
                         Layout.leftMargin: Kirigami.Units.smallSpacing
                     }
-                    GridLayout {
+                    Flow {
                         id: effGrid
                         objectName: "keyboardEffectGrid"
                         Layout.fillWidth: true
                         width: parent.width
-                        readonly property real contentWidth: Math.max(1, parent.width)
-                        readonly property int columnsCount: Math.max(1, Math.floor(contentWidth / keyboardRoot.effectTargetWidth))
-                        readonly property real cellWidth: Math.max(
-                            Kirigami.Units.gridUnit * 8,
-                            (contentWidth - (columnsCount - 1) * columnSpacing) / columnsCount)
-                        columns: columnsCount
-                        rowSpacing: Kirigami.Units.smallSpacing
-                        columnSpacing: Kirigami.Units.smallSpacing
+                        spacing: Kirigami.Units.smallSpacing
 
                         Repeater {
                             model: App.keyboardEffectNames
                             delegate: EffectCard {
                                 required property int index
-                                Layout.minimumWidth: 0
-                                Layout.preferredWidth: effGrid.cellWidth
-                                Layout.preferredHeight: Kirigami.Units.gridUnit * 5
                                 effectName: App.keyboardEffectNames[index]
                                 selected: appShell.selectedKeyboardEffect === effectName
-                                onActivated: appShell.selectedKeyboardEffect = effectName
+                                onActivated: {
+                                    appShell.selectedKeyboardEffect = effectName
+                                    keyboardRoot.requestFirmwareEffectApply()
+                                }
                             }
                         }
                     }
@@ -368,157 +566,128 @@ Item {
                         Layout.alignment: Qt.AlignLeft | Qt.AlignTop
                         spacing: Kirigami.Units.smallSpacing
 
-                        Label { text: qsTr("Speed (0–10):") }
+                        Label {
+                            text: qsTr("Cycle time (0–10):")
+                            enabled: App.keyboard.effectSupports(appShell.selectedKeyboardEffect, "speed")
+                        }
+                        Label {
+                            text: qsTr("Firmware timing index for one animation cycle (not seconds). Higher values often slow the effect; behaviour depends on the selected effect.")
+                            wrapMode: Text.WordWrap
+                            Layout.fillWidth: true
+                            font: Kirigami.Theme.smallFont
+                            opacity: 0.82
+                            enabled: App.keyboard.effectSupports(appShell.selectedKeyboardEffect, "speed")
+                        }
                         SliderSpinRow {
                             id: effSpeedRow
                             showLabel: false
+                            spinBeforeSlider: false
                             from: 0
                             to: 10
                             value: 5
                             sliderMinimumWidth: 120
                             Layout.fillWidth: true
                             Layout.maximumWidth: Kirigami.Units.gridUnit * 12
+                            enabled: App.keyboard.effectSupports(appShell.selectedKeyboardEffect, "speed")
+                            onUserAdjusted: keyboardRoot.requestFirmwareEffectApply()
                         }
 
-                        Label { text: qsTr("Palette slot colour:") }
+                        Label {
+                            text: qsTr("Palette slot colour:")
+                            enabled: App.keyboard.effectSupports(appShell.selectedKeyboardEffect, "color")
+                        }
                         ComboBox {
                             id: effColor
-                            model: App.paletteSlotColorNames
+                            objectName: "keyboardFirmwareColorCombo"
+                            model: App.firmwarePaletteColorChoices
+                            textRole: "key"
+                            valueRole: "key"
                             Layout.fillWidth: true
-                            Layout.maximumWidth: Kirigami.Units.gridUnit * 12
+                            Layout.maximumWidth: Kirigami.Units.gridUnit * 22
+                            enabled: App.keyboard.effectSupports(appShell.selectedKeyboardEffect, "color")
+                            displayText: keyboardRoot.effColorSummaryText
+                            delegate: ItemDelegate {
+                                id: fwColorDel
+                                required property int index
+                                required property var modelData
+                                contentItem: RowLayout {
+                                    spacing: Kirigami.Units.smallSpacing
+                                    Rectangle {
+                                        width: Kirigami.Units.gridUnit
+                                        height: Kirigami.Units.gridUnit
+                                        radius: 2
+                                        color: keyboardRoot.firmwareColorSwatch(fwColorDel.modelData)
+                                        border.width: 1
+                                        border.color: Qt.alpha(Kirigami.Theme.textColor, 0.22)
+                                    }
+                                    ColumnLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 0
+                                        Label {
+                                            text: keyboardRoot.firmwareColorTitleRow(fwColorDel.modelData)
+                                            font.weight: Font.Medium
+                                            elide: Text.ElideRight
+                                            Layout.fillWidth: true
+                                        }
+                                        Label {
+                                            text: keyboardRoot.firmwareColorHexRow(fwColorDel.modelData)
+                                            font: Kirigami.Theme.smallFont
+                                            opacity: 0.85
+                                            elide: Text.ElideRight
+                                            Layout.fillWidth: true
+                                        }
+                                    }
+                                }
+                            }
                             ToolTip.visible: hovered
-                            ToolTip.text: qsTr("Which palette colour slot the effect uses (where supported).")
+                            ToolTip.text: qsTr("Which palette slot the effect reads (1–7). Hex shows the mirrored session colour after writes or restore.")
+                            onActivated: keyboardRoot.requestFirmwareEffectApply()
+                            onCurrentIndexChanged: keyboardRoot.syncFirmwareColorSummaryText()
+                            Component.onCompleted: {
+                                currentIndex = 0
+                                keyboardRoot.syncFirmwareColorSummaryText()
+                            }
                         }
 
-                        Label { text: qsTr("Direction:") }
+                        Label {
+                            text: qsTr("Direction:")
+                            enabled: App.keyboard.effectSupports(appShell.selectedKeyboardEffect, "direction")
+                        }
                         ComboBox {
                             id: effDir
                             model: App.directionNames
                             Layout.fillWidth: true
                             Layout.maximumWidth: Kirigami.Units.gridUnit * 12
+                            enabled: App.keyboard.effectSupports(appShell.selectedKeyboardEffect, "direction")
                             ToolTip.visible: hovered
-                            ToolTip.text: qsTr("Wave / marquee direction (effects that support it).")
+                            ToolTip.text: qsTr("Wave direction (only effects that use direction, e.g. wave).")
+                            onActivated: keyboardRoot.requestFirmwareEffectApply()
                         }
 
                         Label { text: qsTr("Options:") }
                         CheckBox {
                             id: effReactive
                             text: qsTr("Reactive")
+                            enabled: App.keyboard.effectSupports(appShell.selectedKeyboardEffect, "reactive")
+                            onClicked: keyboardRoot.requestFirmwareEffectApply()
                         }
                         CheckBox {
                             id: effSave
                             text: qsTr("Save to firmware")
+                            enabled: App.keyboard.effectSupports(appShell.selectedKeyboardEffect, "save")
+                            onClicked: keyboardRoot.requestFirmwareEffectApply()
                         }
                     }
                 }
 
                 ColumnLayout {
                     spacing: Kirigami.Units.smallSpacing
+                    Layout.fillWidth: true
                     width: parent.width
-                    Label {
-                        wrapMode: Text.WordWrap
-                        Layout.fillWidth: true
-                        text: qsTr("Named swatches and RGB are both shown. Apply sends the named colour if you last picked a swatch; editing RGB switches to custom RGB.")
-                        font.italic: true
+                    Kirigami.Heading {
+                        level: 4
+                        text: qsTr("Device · palette slots (for firmware effects)")
                     }
-                    Label {
-                        text: qsTr("Named colours")
-                    }
-                    Flow {
-                        id: solidFlow
-                        Layout.fillWidth: true
-                        spacing: Kirigami.Units.smallSpacing
-                        readonly property int columns: Math.max(1, Math.floor(width / keyboardRoot.solidSwatchTargetWidth))
-                        readonly property real cellSize: Math.max(
-                            Kirigami.Units.gridUnit * 6,
-                            Math.floor((Math.max(width, 1) - spacing * (columns - 1)) / columns))
-                        Repeater {
-                            model: App.solidColorEntries
-                            delegate: Rectangle {
-                                required property var modelData
-                                width: solidFlow.cellSize
-                                height: solidFlow.cellSize
-                                radius: 4
-                                border.width: keyboardRoot.solidPreferNamed && keyboardRoot.solidPickName === modelData.name ? 3 : 1
-                                border.color: keyboardRoot.solidPreferNamed && keyboardRoot.solidPickName === modelData.name
-                                              ? Kirigami.Theme.highlightColor
-                                              : Qt.alpha(Kirigami.Theme.disabledTextColor, 0.22)
-                                color: Qt.rgba(modelData.r / 255, modelData.g / 255, modelData.b / 255, 1)
-                                Label {
-                                    anchors.bottom: parent.bottom
-                                    anchors.horizontalCenter: parent.horizontalCenter
-                                    anchors.margins: 2
-                                    text: modelData.name
-                                    font.pixelSize: Kirigami.Theme.smallFont.pixelSize
-                                    style: Text.Outline
-                                    styleColor: Qt.rgba(0, 0, 0, 0.7)
-                                }
-                                MouseArea {
-                                    anchors.fill: parent
-                                    onClicked: {
-                                        keyboardRoot.solidPreferNamed = true
-                                        keyboardRoot.solidPickName = modelData.name
-                                        sr.value = modelData.r
-                                        sg.value = modelData.g
-                                        sb.value = modelData.b
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    Label {
-                        text: qsTr("RGB")
-                    }
-                    Flow {
-                        Layout.fillWidth: true
-                        spacing: Kirigami.Units.smallSpacing
-                        ColorWell {
-                            toolTipText: qsTr("Open color picker (updates RGB spin boxes)")
-                            fillColor: Qt.rgba(sr.value / 255, sg.value / 255, sb.value / 255, 1)
-                            onClicked: kbSolidColorDialog.open()
-                        }
-                        SpinBox {
-                            id: sr
-                            property bool _muteSolid: true
-                            Component.onCompleted: _muteSolid = false
-                            from: 0
-                            to: 255
-                            value: 255
-                            onValueChanged: {
-                                if (!_muteSolid)
-                                    keyboardRoot.solidPreferNamed = false
-                            }
-                        }
-                        SpinBox {
-                            id: sg
-                            property bool _muteSolid: true
-                            Component.onCompleted: _muteSolid = false
-                            from: 0
-                            to: 255
-                            value: 0
-                            onValueChanged: {
-                                if (!_muteSolid)
-                                    keyboardRoot.solidPreferNamed = false
-                            }
-                        }
-                        SpinBox {
-                            id: sb
-                            property bool _muteSolid: true
-                            Component.onCompleted: _muteSolid = false
-                            from: 0
-                            to: 255
-                            value: 0
-                            onValueChanged: {
-                                if (!_muteSolid)
-                                    keyboardRoot.solidPreferNamed = false
-                            }
-                        }
-                    }
-                }
-
-                ColumnLayout {
-                    spacing: Kirigami.Units.smallSpacing
-                    width: parent.width
                     Label {
                         wrapMode: Text.WordWrap
                         Layout.fillWidth: true
@@ -546,9 +715,6 @@ Item {
                                               : Qt.alpha(Kirigami.Theme.disabledTextColor, 0.22)
                                 color: {
                                     keyboardRoot.paletteMirrorTick
-                                    var r = App.keyboard.paletteSlotR(slotNum)
-                                    if (r < 0)
-                                        return Kirigami.Theme.disabledTextColor
                                     return Qt.rgba(App.keyboard.paletteSlotR(slotNum) / 255,
                                                    App.keyboard.paletteSlotG(slotNum) / 255,
                                                    App.keyboard.paletteSlotB(slotNum) / 255, 1)
@@ -561,7 +727,7 @@ Item {
                                 ToolTip.visible: ma.containsMouse
                                 ToolTip.text: App.keyboard.paletteSlotKnown(slotNum)
                                                  ? qsTr("Slot %1").arg(slotNum)
-                                                 : qsTr("Slot %1 — not synced this session yet").arg(slotNum)
+                                                 : qsTr("Slot %1 — firmware default colours (nothing written this session yet)").arg(slotNum)
                                 MouseArea {
                                     id: ma
                                     anchors.fill: parent
@@ -632,7 +798,126 @@ Item {
 
                 ColumnLayout {
                     spacing: Kirigami.Units.smallSpacing
+                    Layout.fillWidth: true
                     width: parent.width
+                    Kirigami.Heading {
+                        level: 4
+                        text: qsTr("Software (user): solid colour")
+                    }
+                    Label {
+                        wrapMode: Text.WordWrap
+                        Layout.fillWidth: true
+                        text: qsTr("Named swatches and RGB are both shown. Changes apply automatically while you are on this tab; picking a swatch sends the named colour, and editing RGB switches to custom RGB.")
+                        font.italic: true
+                    }
+                    Label {
+                        text: qsTr("Named colours")
+                    }
+                    Flow {
+                        id: solidFlow
+                        Layout.fillWidth: true
+                        spacing: Kirigami.Units.smallSpacing
+                        readonly property int cellW: keyboardRoot.solidSwatchCell
+                        readonly property int columns: Math.max(1, Math.floor((width + spacing) / (cellW + spacing)))
+                        Repeater {
+                            model: App.solidColorEntries
+                            delegate: Rectangle {
+                                required property var modelData
+                                width: solidFlow.cellW
+                                height: solidFlow.cellW
+                                radius: 4
+                                border.width: keyboardRoot.solidPreferNamed && keyboardRoot.solidPickName === modelData.name ? 3 : 1
+                                border.color: keyboardRoot.solidPreferNamed && keyboardRoot.solidPickName === modelData.name
+                                              ? Kirigami.Theme.highlightColor
+                                              : Qt.alpha(Kirigami.Theme.disabledTextColor, 0.22)
+                                color: Qt.rgba(modelData.r / 255, modelData.g / 255, modelData.b / 255, 1)
+                                Label {
+                                    anchors.bottom: parent.bottom
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    anchors.margins: 2
+                                    text: modelData.name
+                                    font.pixelSize: Kirigami.Theme.smallFont.pixelSize
+                                    style: Text.Outline
+                                    styleColor: Qt.rgba(0, 0, 0, 0.7)
+                                }
+                                MouseArea {
+                                    anchors.fill: parent
+                                    onClicked: {
+                                        keyboardRoot.solidPreferNamed = true
+                                        keyboardRoot.solidPickName = modelData.name
+                                        sr.value = modelData.r
+                                        sg.value = modelData.g
+                                        sb.value = modelData.b
+                                        keyboardRoot.requestSolidApply()
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    Label {
+                        text: qsTr("RGB")
+                    }
+                    Flow {
+                        Layout.fillWidth: true
+                        spacing: Kirigami.Units.smallSpacing
+                        ColorWell {
+                            toolTipText: qsTr("Open color picker (updates RGB spin boxes)")
+                            fillColor: Qt.rgba(sr.value / 255, sg.value / 255, sb.value / 255, 1)
+                            onClicked: kbSolidColorDialog.open()
+                        }
+                        SpinBox {
+                            id: sr
+                            property bool _muteSolid: true
+                            Component.onCompleted: _muteSolid = false
+                            from: 0
+                            to: 255
+                            value: 255
+                            onValueChanged: {
+                                if (!_muteSolid) {
+                                    keyboardRoot.solidPreferNamed = false
+                                    keyboardRoot.requestSolidApply()
+                                }
+                            }
+                        }
+                        SpinBox {
+                            id: sg
+                            property bool _muteSolid: true
+                            Component.onCompleted: _muteSolid = false
+                            from: 0
+                            to: 255
+                            value: 0
+                            onValueChanged: {
+                                if (!_muteSolid) {
+                                    keyboardRoot.solidPreferNamed = false
+                                    keyboardRoot.requestSolidApply()
+                                }
+                            }
+                        }
+                        SpinBox {
+                            id: sb
+                            property bool _muteSolid: true
+                            Component.onCompleted: _muteSolid = false
+                            from: 0
+                            to: 255
+                            value: 0
+                            onValueChanged: {
+                                if (!_muteSolid) {
+                                    keyboardRoot.solidPreferNamed = false
+                                    keyboardRoot.requestSolidApply()
+                                }
+                            }
+                        }
+                    }
+                }
+
+                ColumnLayout {
+                    spacing: Kirigami.Units.smallSpacing
+                    Layout.fillWidth: true
+                    width: parent.width
+                    Kirigami.Heading {
+                        level: 4
+                        text: qsTr("Software (user): per-key grid")
+                    }
                     KeyColorGrid {
                         keyboard: App.keyboard
                         Layout.fillWidth: true
@@ -652,16 +937,17 @@ Item {
 
                 ColumnLayout {
                     spacing: Kirigami.Units.smallSpacing
+                    Layout.fillWidth: true
                     width: parent.width
-                    Label {
-                        text: qsTr("These actions are independent of Apply below.")
-                        font.italic: true
-                        wrapMode: Text.WordWrap
-                        Layout.fillWidth: true
-                    }
                     Kirigami.Heading {
                         level: 4
-                        text: qsTr("Animation file (DSL)")
+                        text: qsTr("Software (user): animation file")
+                    }
+                    Label {
+                        text: qsTr("Runs the DSL script on the keyboard. Independent of the Apply button (palette and per-key only).")
+                        wrapMode: Text.WordWrap
+                        Layout.fillWidth: true
+                        font.italic: true
                     }
                     Label {
                         text: App.animationFilePath.length > 0
@@ -670,30 +956,46 @@ Item {
                         wrapMode: Text.WordWrap
                         Layout.fillWidth: true
                     }
-                    Flow {
+                    Label {
+                        text: qsTr("Repeat count runs the whole script from the file that many times (ignored when “Loop forever” is checked).")
+                        wrapMode: Text.WordWrap
                         Layout.fillWidth: true
+                        font.italic: true
+                    }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: Kirigami.Units.smallSpacing
+                        Label {
+                            text: qsTr("Repeat script:")
+                            Layout.alignment: Qt.AlignVCenter
+                        }
                         SpinBox {
                             id: animLoops
                             from: 1
                             to: 999
                             value: 1
+                            Layout.alignment: Qt.AlignVCenter
                         }
                         CheckBox {
                             id: animForever
                             text: qsTr("Loop forever")
+                            Layout.alignment: Qt.AlignVCenter
                         }
                         Button {
                             text: qsTr("Pick file…")
                             onClicked: kbAnimDialog.open()
+                            Layout.alignment: Qt.AlignVCenter
                         }
                         Button {
                             text: qsTr("Play")
                             enabled: App.animationFilePath.length > 0 && App.keyboard.connected
                             onClicked: App.keyboard.playAnimationFile(App.animationFilePath, animLoops.value, animForever.checked)
+                            Layout.alignment: Qt.AlignVCenter
                         }
                         Button {
-                            text: qsTr("Stop follow / animation")
+                            text: qsTr("Stop animation")
                             onClicked: App.keyboard.stopFollowOrAnimation()
+                            Layout.alignment: Qt.AlignVCenter
                         }
                     }
                     Frame {
@@ -709,10 +1011,27 @@ Item {
                             selectByMouse: true
                         }
                     }
+                }
+
+                ColumnLayout {
+                    spacing: Kirigami.Units.smallSpacing
+                    Layout.fillWidth: true
+                    width: parent.width
                     Kirigami.Heading {
                         level: 4
-                        text: qsTr("Follow screen")
-                        visible: App.keyboard.followScreenExtraOk
+                        text: qsTr("Software (user): follow screen")
+                    }
+                    Label {
+                        text: qsTr("Follow-screen does not require a firmware effect first; it switches the keyboard to user mode and samples the display.")
+                        wrapMode: Text.WordWrap
+                        Layout.fillWidth: true
+                        font.italic: true
+                    }
+                    Label {
+                        text: qsTr("Independent of the Apply button (palette and per-key only).")
+                        wrapMode: Text.WordWrap
+                        Layout.fillWidth: true
+                        font.italic: true
                     }
                     Label {
                         visible: App.keyboard.followScreenExtraOk && App.keyboard.followScreenUsesWaylandPicker
@@ -762,11 +1081,11 @@ Item {
                         }
                         RowLayout {
                             Button {
-                                text: qsTr("Start follow")
+                                text: qsTr("Start following")
                                 onClicked: App.keyboard.startFollowScreen(folFull.checked, fx.value, fy.value, fw.value, fh.value)
                             }
                             Button {
-                                text: qsTr("Stop")
+                                text: qsTr("Stop following")
                                 onClicked: App.keyboard.stopFollowOrAnimation()
                             }
                         }
@@ -781,7 +1100,12 @@ Item {
 
                 ColumnLayout {
                     spacing: Kirigami.Units.smallSpacing
+                    Layout.fillWidth: true
                     width: parent.width
+                    Kirigami.Heading {
+                        level: 4
+                        text: qsTr("Extra / tools")
+                    }
                     RowLayout {
                         Button {
                             text: qsTr("Demo test pattern")
@@ -793,7 +1117,8 @@ Item {
                         }
                     }
                 }
-            }
+                    }
+                }
             }
         }
 
@@ -827,13 +1152,35 @@ Item {
             Button {
                 id: keyboardApplyConfigButton
                 objectName: "keyboardApplyConfig"
+                visible: keyboardRoot.subNavIndex === keyboardRoot.pagePalette
+                    || keyboardRoot.subNavIndex === keyboardRoot.pagePerKey
                 text: qsTr("Apply")
                 ToolTip.visible: hovered
-                ToolTip.text: qsTr("Apply the current mode (Firmware, Solid, Palette, or Per-key).")
-                enabled: App.keyboard.connected && keyboardRoot.subNavIndex >= 0 && keyboardRoot.subNavIndex <= 3
+                ToolTip.text: qsTr("Apply palette slot RGB or the per-key grid. Firmware applies automatically; solid colour applies automatically on its tab.")
+                enabled: visible && App.keyboard.connected
                 onClicked: keyboardRoot.applyKeyboardConfiguration()
             }
         }
+        }
+    }
+
+    Connections {
+        target: App.keyboard
+        function onInspectChanged() {
+            if (kbDeviceBright.sliderPressed)
+                return
+            kbDeviceBright.value = keyboardRoot.brightnessFwToPercent(App.keyboard.brightnessRead)
+        }
+    }
+
+    Connections {
+        target: keyboardRoot
+        function onSubNavIndexChanged() {
+            fwEffectApplyTimer.stop()
+            solidApplyTimer.stop()
+            keyboardRoot.solidApplyPending = false
+            if (keyboardRoot.subNavIndex !== keyboardRoot.pageFirmware)
+                keyboardRoot.firmwareEffectDirty = false
         }
     }
 }

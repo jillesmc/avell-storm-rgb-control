@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
@@ -17,6 +18,7 @@ from avell_storm_rgb.domain.keyboard_solid_colors import SOLID_COLOR_NAMES
 from avell_storm_rgb.infrastructure.usb.ite8291_usb import (
     KEYBOARD_DIRECTIONS,
     KEYBOARD_EFFECTS,
+    KEYBOARD_FIRMWARE_COLOR_CHOICES,
     KEYBOARD_PALETTE_SLOT_COLORS,
 )
 from avell_storm_rgb.infrastructure.usb.ite8233_usb import LED_BAR_EFFECT_CODES
@@ -26,6 +28,10 @@ from app.ui.adapters.device_model import DeviceListModel
 from app.ui.adapters.keyboard_backend import KeyboardBackend
 from app.ui.adapters.led_bar_backend import LedBarBackend
 from app.core.usb_worker import UsbWorker
+
+
+def _env_truthy(name: str) -> bool:
+    return os.environ.get(name, "").strip().lower() in ("1", "true", "yes", "on")
 
 
 class AppFacade(QObject):
@@ -62,12 +68,18 @@ class AppFacade(QObject):
         self._anim_path = ""
         self._app_version = _package_version()
         self._device_epoch = 0
+        self._debug_firmware_ui = _env_truthy("AVELL_DEBUG_FIRMWARE_UI")
         self._keyboard.connectedChanged.connect(self._bump_device_epoch)
         self._led.connectedChanged.connect(self._bump_device_epoch)
 
     @Property(str, constant=True)
     def applicationVersion(self) -> str:
         return self._app_version
+
+    @Property(bool, constant=True)
+    def debugFirmwareUi(self) -> bool:
+        """When true (env ``AVELL_DEBUG_FIRMWARE_UI``), Keyboard firmware tab logs layout/apply churn to stderr."""
+        return self._debug_firmware_ui
 
     @Property(bool, notify=closeToTrayChanged)
     def closeToTray(self) -> bool:
@@ -153,6 +165,15 @@ class AppFacade(QObject):
     @Property(list, constant=True)
     def paletteSlotColorNames(self) -> list[str]:
         return sorted(KEYBOARD_PALETTE_SLOT_COLORS.keys())
+
+    @Property(list, constant=True)
+    def firmwarePaletteColorChoices(self) -> list[dict[str, int | str]]:
+        """Rows for firmware colour ComboBox: key (CLI/API), palette_slot 1–7 or -1 for random/none."""
+        rows: list[dict[str, int | str]] = []
+        for key, fw in KEYBOARD_FIRMWARE_COLOR_CHOICES:
+            slot = fw if 1 <= fw <= 7 else -1
+            rows.append({"key": key, "palette_slot": slot, "fw_index": fw})
+        return rows
 
     @Property(list, constant=True)
     def directionNames(self) -> list[str]:

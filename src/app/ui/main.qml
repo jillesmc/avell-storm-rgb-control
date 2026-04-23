@@ -66,6 +66,34 @@ Kirigami.ApplicationWindow {
         }
     }
 
+    function fillKeyboardSubNavModel() {
+        keyboardSubNavModel.clear()
+        keyboardSubNavModel.append({ rowKind: "header", headerText: qsTr("Firmware"), itemText: "", page: -1 })
+        keyboardSubNavModel.append({ rowKind: "item", headerText: "", itemText: qsTr("Effect"), page: 0 })
+        keyboardSubNavModel.append({ rowKind: "item", headerText: "", itemText: qsTr("Palette slot configuration"), page: 1 })
+        keyboardSubNavModel.append({ rowKind: "header", headerText: qsTr("User-defined"), itemText: "", page: -1 })
+        keyboardSubNavModel.append({ rowKind: "item", headerText: "", itemText: qsTr("Solid color"), page: 2 })
+        keyboardSubNavModel.append({ rowKind: "item", headerText: "", itemText: qsTr("Per-key grid"), page: 3 })
+        keyboardSubNavModel.append({ rowKind: "item", headerText: "", itemText: qsTr("Animation file"), page: 4 })
+        keyboardSubNavModel.append({ rowKind: "item", headerText: "", itemText: qsTr("Follow screen"), page: 5 })
+        keyboardSubNavModel.append({ rowKind: "header", headerText: qsTr("Extra"), itemText: "", page: -1 })
+        keyboardSubNavModel.append({ rowKind: "item", headerText: "", itemText: qsTr("Tools"), page: 6 })
+    }
+
+    function syncKeyboardSubNavListHighlight() {
+        var i
+        for (i = 0; i < keyboardSubNavModel.count; i++) {
+            var row = keyboardSubNavModel.get(i)
+            if (row.rowKind === "item" && row.page === appRoot.keyboardSubNavIndex) {
+                if (keyboardSubNavList.currentIndex !== i)
+                    keyboardSubNavList.currentIndex = i
+                keyboardSubNavList.positionViewAtIndex(i, ListView.Contain)
+                return
+            }
+        }
+        keyboardSubNavList.currentIndex = -1
+    }
+
     Component.onCompleted: {
         App.refreshDevices()
         App.tryAutoConnectDiscoveredDevices()
@@ -101,6 +129,11 @@ Kirigami.ApplicationWindow {
             showSwitch: true
         })
         primarySidebarList.currentIndex = 0
+
+        appRoot.fillKeyboardSubNavModel()
+        Qt.callLater(function () {
+            appRoot.syncKeyboardSubNavListHighlight()
+        })
     }
 
     Connections {
@@ -112,6 +145,10 @@ Kirigami.ApplicationWindow {
 
     ListModel {
         id: primaryNavModel
+    }
+
+    ListModel {
+        id: keyboardSubNavModel
     }
 
     RowLayout {
@@ -338,28 +375,44 @@ Kirigami.ApplicationWindow {
                 anchors.bottomMargin: Kirigami.Units.smallSpacing
                 clip: true
                 spacing: 0
-                model: [
-                    qsTr("Firmware effect"),
-                    qsTr("Solid color"),
-                    qsTr("Palette slot"),
-                    qsTr("Per-key grid"),
-                    qsTr("Live mode"),
-                    qsTr("Tools")
-                ]
-                Component.onCompleted: currentIndex = appRoot.keyboardSubNavIndex
-                onCurrentIndexChanged: {
-                    if (appRoot.primarySection === 1 && currentIndex >= 0)
-                        appRoot.keyboardSubNavIndex = currentIndex
-                }
-                delegate: ItemDelegate {
+                model: keyboardSubNavModel
+                delegate: ColumnLayout {
                     width: ListView.view.width
-                    text: modelData
-                    highlighted: ListView.isCurrentItem
-                    topPadding: Kirigami.Units.mediumSpacing
-                    bottomPadding: Kirigami.Units.mediumSpacing
-                    leftPadding: Kirigami.Units.mediumSpacing
-                    rightPadding: Kirigami.Units.mediumSpacing
-                    onClicked: ListView.view.currentIndex = index
+                    spacing: 0
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Layout.topMargin: Kirigami.Units.mediumSpacing
+                        Layout.bottomMargin: Kirigami.Units.smallSpacing
+                        Layout.leftMargin: Kirigami.Units.mediumSpacing
+                        Layout.rightMargin: Kirigami.Units.smallSpacing
+                        visible: model.rowKind === "header"
+                        spacing: Kirigami.Units.mediumSpacing
+
+                        Label {
+                            text: model.headerText
+                            color: Kirigami.Theme.disabledTextColor
+                            font.pixelSize: Kirigami.Theme.smallFont.pixelSize
+                            font.bold: true
+                            elide: Text.ElideRight
+                            Layout.alignment: Qt.AlignVCenter
+                        }
+                        Kirigami.Separator {
+                            Layout.fillWidth: true
+                            Layout.alignment: Qt.AlignVCenter
+                        }
+                    }
+                    ItemDelegate {
+                        Layout.fillWidth: true
+                        visible: model.rowKind === "item"
+                        text: model.itemText
+                        highlighted: ListView.isCurrentItem
+                        topPadding: Kirigami.Units.mediumSpacing
+                        bottomPadding: Kirigami.Units.mediumSpacing
+                        leftPadding: Kirigami.Units.mediumSpacing
+                        rightPadding: Kirigami.Units.mediumSpacing
+                        onClicked: appRoot.keyboardSubNavIndex = model.page
+                    }
                 }
                 ScrollBar.vertical: ScrollBar {
                     policy: ScrollBar.AsNeeded
@@ -368,12 +421,12 @@ Kirigami.ApplicationWindow {
                 Connections {
                     target: appRoot
                     function onKeyboardSubNavIndexChanged() {
-                        if (appRoot.primarySection === 1 && keyboardSubNavList.currentIndex !== appRoot.keyboardSubNavIndex)
-                            keyboardSubNavList.currentIndex = appRoot.keyboardSubNavIndex
+                        if (appRoot.primarySection === 1)
+                            appRoot.syncKeyboardSubNavListHighlight()
                     }
                     function onPrimarySectionChanged() {
                         if (appRoot.primarySection === 1)
-                            keyboardSubNavList.currentIndex = appRoot.keyboardSubNavIndex
+                            appRoot.syncKeyboardSubNavListHighlight()
                     }
                 }
             }

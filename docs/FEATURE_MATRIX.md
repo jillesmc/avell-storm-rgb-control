@@ -1,5 +1,7 @@
 # Feature matrix and parity (ITE 8291 + ITE 8233)
 
+**Análise aprofundada (pt-BR):** [DEVICE_FEATURES_DEEP_DIVE.md](DEVICE_FEATURES_DEEP_DIVE.md) — efeitos, parâmetros, exclusões, paletas e alinhamento com a UI.
+
 Upstream inspiration: [ite8291r3-ctl](https://github.com/pobrn/ite8291r3-ctl); LED bar protocol from MIT-licensed vendor sources (see NOTICE).  
 CLI/API in this repo: `avell-storm-rgb` (see README). Each row should remain reachable through the unified interface (parity).
 

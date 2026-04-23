@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import enum
+import os
+import sys
 import threading
 import time
 from pathlib import Path
 
-from PySide6.QtCore import Property, QObject, Qt, Signal, Slot
+from PySide6.QtCore import Property, QObject, Qt, QTimer, Signal, Slot
 
 from avell_storm_rgb.application.device_facade import open_keyboard
 from avell_storm_rgb.application.screen_follow_dispatch import (
@@ -23,6 +26,23 @@ from avell_storm_rgb.infrastructure.usb.ite8291_usb import (
 )
 
 from app.core.usb_worker import UsbWorker
+
+
+def _debug_firmware_ui() -> bool:
+    return os.environ.get("AVELL_DEBUG_FIRMWARE_UI", "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
+
+
+class _BrightnessTarget(enum.IntEnum):
+    """Whether brightness slider should also refresh the firmware effect packet."""
+
+    GLOBAL_ONLY = 0
+    FIRMWARE_REAPPLY = 1
+
 
 EFFECT_KWARGS: dict[str, frozenset[str]] = {
     "breathing": frozenset({"speed", "brightness", "color", "save"}),
@@ -81,6 +101,19 @@ class KeyboardBackend(QObject):
         self._key_grid_epoch = 0
         self._last_effect_snapshot: list[int] | None = None
         self._palette_mirror: dict[int, tuple[int, int, int]] = {}
+        self._brightness_target = _BrightnessTarget.GLOBAL_ONLY
+        self._last_fw_name: str = ""
+        self._last_fw_speed: int = 5
+        self._last_fw_brightness: int = 25
+        self._last_fw_color_name: str = "random"
+        self._last_fw_direction_name: str = "right"
+        self._last_fw_reactive: bool = False
+        self._last_fw_save: bool = False
+        self._pending_brightness: int | None = None
+        self._brightness_timer = QTimer(self)
+        self._brightness_timer.setSingleShot(True)
+        self._brightness_timer.setInterval(200)
+        self._brightness_timer.timeout.connect(self._flush_brightness_debounced)
 
         self.inspectUpdate.connect(
             self._apply_inspect, Qt.ConnectionType.QueuedConnection
@@ -202,24 +235,40 @@ class KeyboardBackend(QObject):
         self._palette_mirror = d
         self.paletteMirrorChanged.emit()
 
+    def _palette_slot_rgb(self, slot: int) -> tuple[int, int, int]:
+        """Session mirror if present, else firmware default palette (restore_default order)."""
+        s = max(1, min(7, slot))
+        t = self._palette_mirror.get(s)
+        if t is not None:
+            return t
+        return self._DEFAULT_PALETTE[s]
+
     @Slot(int, result=int)
     def paletteSlotR(self, slot: int) -> int:
-        t = self._palette_mirror.get(max(1, min(7, slot)))
-        return -1 if t is None else t[0]
+        return self._palette_slot_rgb(slot)[0]
 
     @Slot(int, result=int)
     def paletteSlotG(self, slot: int) -> int:
-        t = self._palette_mirror.get(max(1, min(7, slot)))
-        return -1 if t is None else t[1]
+        return self._palette_slot_rgb(slot)[1]
 
     @Slot(int, result=int)
     def paletteSlotB(self, slot: int) -> int:
-        t = self._palette_mirror.get(max(1, min(7, slot)))
-        return -1 if t is None else t[2]
+        return self._palette_slot_rgb(slot)[2]
 
     @Slot(int, result=bool)
     def paletteSlotKnown(self, slot: int) -> bool:
         return max(1, min(7, slot)) in self._palette_mirror
+
+    def _reset_brightness_context(self) -> None:
+        self._brightness_target = _BrightnessTarget.GLOBAL_ONLY
+        self._last_fw_name = ""
+
+    @Slot(str, str, result=bool)
+    def effectSupports(self, effect_name: str, capability: str) -> bool:
+        """Whether ``capability`` is used by ``effect_name`` (speed, color, direction, reactive, save)."""
+
+        caps = EFFECT_KWARGS.get(effect_name, frozenset())
+        return capability in caps
 
     @Slot(int, int)
     def connectAt(self, bus: int, addr: int) -> None:
@@ -228,6 +277,7 @@ class KeyboardBackend(QObject):
             self._bus = bus
             self._addr = addr
             self.connectedChanged.emit()
+            self._reset_brightness_context()
             self._do_inspect_emit()
 
         self._worker.submit(task)
@@ -242,6 +292,7 @@ class KeyboardBackend(QObject):
             self.connectedChanged.emit()
             self.effectSnapshotUpdate.emit(None)
             self.paletteClearRequest.emit()
+            self._reset_brightness_context()
 
         self._worker.submit(task)
 
@@ -265,6 +316,8 @@ class KeyboardBackend(QObject):
 
     @Slot()
     def powerOff(self) -> None:
+        self._reset_brightness_context()
+
         def task() -> None:
             if self._kb is None:
                 return
@@ -292,10 +345,63 @@ class KeyboardBackend(QObject):
 
     @Slot(int)
     def setBrightness(self, value: int) -> None:
+        """Immediate USB brightness (no debounce); keeps firmware packet in sync when applicable."""
+
         def task() -> None:
             if self._kb is None:
                 return
-            self._kb.set_brightness(max(0, min(50, value)))
+            v = max(0, min(50, value))
+            self._kb.set_brightness(v)
+            if (
+                self._brightness_target == _BrightnessTarget.FIRMWARE_REAPPLY
+                and self._last_fw_name
+                and not self._kb.is_off()
+            ):
+                self._reapply_cached_firmware_effect(v)
+            self._do_inspect_emit()
+
+        self._worker.submit(task)
+
+    def _reapply_cached_firmware_effect(self, brightness: int) -> None:
+        assert self._kb is not None
+        name = self._last_fw_name
+        builder = KEYBOARD_EFFECTS.get(name)
+        if builder is None:
+            return
+        kw = self._effect_kwargs(
+            name,
+            self._last_fw_speed,
+            brightness,
+            self._last_fw_color_name,
+            self._last_fw_direction_name,
+            self._last_fw_reactive,
+            self._last_fw_save,
+        )
+        self._kb.set_effect(builder(**kw))
+
+    @Slot(int)
+    def requestBrightnessFromUi(self, value: int) -> None:
+        """Debounced brightness from the device slider (global + optional firmware packet refresh)."""
+
+        self._pending_brightness = max(0, min(50, int(value)))
+        self._brightness_timer.stop()
+        self._brightness_timer.start()
+
+    def _flush_brightness_debounced(self) -> None:
+        v = self._pending_brightness
+        if v is None:
+            return
+
+        def task() -> None:
+            if self._kb is None:
+                return
+            self._kb.set_brightness(v)
+            if (
+                self._brightness_target == _BrightnessTarget.FIRMWARE_REAPPLY
+                and self._last_fw_name
+                and not self._kb.is_off()
+            ):
+                self._reapply_cached_firmware_effect(v)
             self._do_inspect_emit()
 
         self._worker.submit(task)
@@ -343,6 +449,24 @@ class KeyboardBackend(QObject):
         if builder is None:
             return
 
+        self._last_fw_name = name
+        self._last_fw_speed = speed
+        self._last_fw_brightness = brightness
+        self._last_fw_color_name = color_name
+        self._last_fw_direction_name = direction_name
+        self._last_fw_reactive = reactive
+        self._last_fw_save = save
+        self._brightness_target = _BrightnessTarget.FIRMWARE_REAPPLY
+
+        if _debug_firmware_ui():
+            print(
+                "[avell-storm-rgb] applyEffect",
+                f"name={name!r} speed={speed} brightness={brightness} color={color_name!r} "
+                f"dir={direction_name!r} reactive={reactive} save={save}",
+                file=sys.stderr,
+                flush=True,
+            )
+
         def task() -> None:
             if self._kb is None:
                 return
@@ -356,6 +480,8 @@ class KeyboardBackend(QObject):
 
     @Slot(str)
     def setSolidNamed(self, name: str) -> None:
+        self._brightness_target = _BrightnessTarget.GLOBAL_ONLY
+
         def task() -> None:
             if self._kb is None:
                 return
@@ -369,6 +495,8 @@ class KeyboardBackend(QObject):
 
     @Slot(int, int, int)
     def setSolidRgb(self, r: int, g: int, b: int) -> None:
+        self._brightness_target = _BrightnessTarget.GLOBAL_ONLY
+
         def task() -> None:
             if self._kb is None:
                 return
@@ -451,6 +579,7 @@ class KeyboardBackend(QObject):
         p = Path(path)
         if not p.is_file():
             return
+        self._brightness_target = _BrightnessTarget.GLOBAL_ONLY
         text = p.read_text(encoding="utf-8", errors="replace")
         lines = text.splitlines()
 
@@ -480,6 +609,7 @@ class KeyboardBackend(QObject):
     @Slot(bool, int, int, int, int)
     def startFollowScreen(self, fullscreen: bool, x: int, y: int, w: int, h: int) -> None:
         self._follow_stop.clear()
+        self._brightness_target = _BrightnessTarget.GLOBAL_ONLY
 
         def task() -> None:
             if self._kb is None:
@@ -529,6 +659,8 @@ class KeyboardBackend(QObject):
 
     @Slot(bool)
     def applyKeyGrid(self, enable_user_mode: bool) -> None:
+        self._brightness_target = _BrightnessTarget.GLOBAL_ONLY
+
         def task() -> None:
             if self._kb is None:
                 return

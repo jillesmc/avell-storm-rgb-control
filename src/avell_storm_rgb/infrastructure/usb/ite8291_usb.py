@@ -47,6 +47,19 @@ KEYBOARD_PALETTE_SLOT_COLORS: dict[str, int] = {
     "random": 8,
 }
 
+# Stable UI / firmware-effect picker order (slot 1–7, then random, none).
+KEYBOARD_FIRMWARE_COLOR_CHOICES: list[tuple[str, int]] = [
+    ("red", 1),
+    ("orange", 2),
+    ("yellow", 3),
+    ("green", 4),
+    ("blue", 5),
+    ("teal", 6),
+    ("purple", 7),
+    ("random", 8),
+    ("none", 0),
+]
+
 KEYBOARD_DIRECTIONS: dict[str, int] = {
     "none": 0,
     "right": 1,

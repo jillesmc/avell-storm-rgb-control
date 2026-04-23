@@ -161,7 +161,7 @@ ColumnLayout {
                                 Button {
                                     text: deviceRow.openInApp ? qsTr("Disconnect") : qsTr("Connect")
                                     highlighted: deviceRow.openInApp
-                                    Layout.alignment: columns === 1 ? Qt.AlignLeft : Qt.AlignTop
+                                    Layout.alignment: rowLayout.columns === 1 ? Qt.AlignLeft : Qt.AlignTop
                                     Layout.minimumWidth: Kirigami.Units.gridUnit * 11
                                     Layout.preferredHeight: implicitHeight
                                     ToolTip.visible: hovered

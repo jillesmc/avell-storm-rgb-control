@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from PySide6.QtCore import Property, QObject, Qt, Signal, Slot
+from PySide6.QtCore import Property, QObject, Qt, QTimer, Signal, Slot
 
 from avell_storm_rgb.domain.ledbar_colors import COLORS as LED_NAMED_COLORS
 from avell_storm_rgb.domain.ledbar_colors import PALETTES as LED_PALETTES
@@ -31,6 +31,46 @@ class LedBarBackend(QObject):
         self.replayModeUpdate.connect(
             self._apply_replay_mode, Qt.ConnectionType.QueuedConnection
         )
+        self._pending_led_brightness: int | None = None
+        self._pending_shell_effect: str = "static"
+        self._led_brightness_timer = QTimer(self)
+        self._led_brightness_timer.setSingleShot(True)
+        self._led_brightness_timer.setInterval(200)
+        self._led_brightness_timer.timeout.connect(self._flush_led_brightness_debounced)
+
+    def _effect_name_from_replay(self) -> str | None:
+        if not self._last_replay:
+            return None
+        kind = self._last_replay.get("kind")
+        if kind == "effect":
+            return str(self._last_replay.get("name", ""))
+        if kind in ("palette", "tune_bri", "tune_sp", "tune"):
+            return str(self._last_replay.get("effect", ""))
+        if kind == "color":
+            return "static"
+        return None
+
+    def _flush_led_brightness_debounced(self) -> None:
+        v = self._pending_led_brightness
+        if v is None:
+            return
+        shell_eff = (self._pending_shell_effect or "static").lower().strip()
+        raw = self._effect_name_from_replay()
+        eff_key = (raw or "").lower().strip()
+        if eff_key not in LED_BAR_EFFECT_CODES:
+            eff_key = shell_eff if shell_eff in LED_BAR_EFFECT_CODES else "static"
+        vv = int(v)
+
+        def task() -> None:
+            if self._bar is None:
+                return
+            self._bar.set_brightness_level(vv)
+            self._bar.apply_visual_effect(eff_key)
+            self.replayModeUpdate.emit(
+                {"kind": "tune_bri", "brightness": vv, "effect": eff_key}
+            )
+
+        self._worker.submit(task)
 
     @Property(bool, notify=connectedChanged)
     def connected(self) -> bool:
@@ -155,6 +195,15 @@ class LedBarBackend(QObject):
             self._bar.power_off()
 
         self._worker.submit(task)
+
+    @Slot(int, str)
+    def requestBrightnessFromUi(self, value: int, shell_effect: str) -> None:
+        """Debounced brightness: re-applies last known or ``shell_effect`` visual mode."""
+
+        self._pending_led_brightness = max(0, min(100, int(value)))
+        self._pending_shell_effect = shell_effect or "static"
+        self._led_brightness_timer.stop()
+        self._led_brightness_timer.start()
 
     @Slot(str)
     def setColorFromSpec(self, spec: str) -> None:
