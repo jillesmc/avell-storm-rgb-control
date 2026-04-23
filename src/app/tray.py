@@ -14,30 +14,31 @@ class TrayController(QObject):
     def __init__(
         self,
         window: QQuickWindow,
+        app_icon: QIcon,
         icon_search_dir: Path | None = None,
         parent: QObject | None = None,
     ) -> None:
         super().__init__(parent)
         self._window = window
         self._tray = QSystemTrayIcon(self)
+        self._toggle_action = QAction(self)
 
-        self._tray.setIcon(self._resolve_icon(icon_search_dir))
+        icon = app_icon if not app_icon.isNull() else self._resolve_icon(icon_search_dir)
+        self._tray.setIcon(icon)
         self._tray.setToolTip(window.title() or "Avell Storm RGB")
 
         menu = QMenu()
-        act_show = QAction("Show", self)
-        act_hide = QAction("Hide", self)
         act_quit = QAction("Quit", self)
-        menu.addAction(act_show)
-        menu.addAction(act_hide)
+        menu.addAction(self._toggle_action)
         menu.addSeparator()
         menu.addAction(act_quit)
         self._tray.setContextMenu(menu)
 
-        act_show.triggered.connect(self._show_window)
-        act_hide.triggered.connect(self._hide_window)
+        self._sync_toggle_text()
+        self._toggle_action.triggered.connect(self._toggle_window)
         act_quit.triggered.connect(QApplication.quit)
         self._tray.activated.connect(self._on_tray_activated)
+        self._window.visibleChanged.connect(self._sync_toggle_text)
 
         self._tray.show()
 
@@ -65,10 +66,12 @@ class TrayController(QObject):
         self._window.show()
         self._window.raise_()
         self._window.requestActivate()
+        self._sync_toggle_text()
 
     @Slot()
     def _hide_window(self) -> None:
         self._window.hide()
+        self._sync_toggle_text()
 
     @Slot()
     def _toggle_window(self) -> None:
@@ -76,6 +79,9 @@ class TrayController(QObject):
             self._hide_window()
         else:
             self._show_window()
+
+    def _sync_toggle_text(self) -> None:
+        self._toggle_action.setText("Hide" if self._window.isVisible() else "Show")
 
     def _on_tray_activated(self, reason: QSystemTrayIcon.ActivationReason) -> None:
         if reason in (

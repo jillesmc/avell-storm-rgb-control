@@ -56,7 +56,11 @@ def main() -> int:
 
     repo_root = app_dir.parents[1]
     icon_dir = repo_root / "assets" / "gui"
-    TrayController(window, icon_dir if icon_dir.is_dir() else None, parent=app)
+    app_icon = TrayController._resolve_icon(icon_dir if icon_dir.is_dir() else None)
+    if not app_icon.isNull():
+        app.setWindowIcon(app_icon)
+        window.setIcon(app_icon)
+    TrayController(window, app_icon, icon_dir if icon_dir.is_dir() else None, parent=app)
 
     return app.exec()
 

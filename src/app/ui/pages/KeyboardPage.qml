@@ -34,6 +34,9 @@ Item {
     property string solidPickName: ""
 
     property int paletteMirrorTick: 0
+    property var selectedPerKeyIds: []
+    property string activePerKeyId: ""
+    property color lastPerKeyColor: Qt.rgba(0.21, 0.21, 0.21, 1)
     /** Closed-state label for firmware colour combo (updated only on index / palette change). */
     property string effColorSummaryText: ""
 
@@ -82,6 +85,10 @@ Item {
     function _byteHex(v) {
         var s = Math.round(v).toString(16)
         return s.length === 1 ? "0" + s : s
+    }
+
+    function setLastPerKeyColorFromQmlColor(c) {
+        lastPerKeyColor = Qt.rgba(c.r, c.g, c.b, 1)
     }
 
     function firmwareColorHexRow(md) {
@@ -244,8 +251,7 @@ Item {
 
     QtObject {
         id: gridPick
-        property int row: -1
-        property int col: -1
+        property string keyId: ""
     }
 
     Connections {
@@ -268,15 +274,33 @@ Item {
 
     ColorDialog {
         id: kbGridColorDialog
-        title: qsTr("Key cell color")
+        title: qsTr("Key color")
         onAccepted: {
-            if (gridPick.row >= 0) {
+            if (gridPick.keyId.length > 0) {
                 var c = kbGridColorDialog.selectedColor
-                App.keyboard.setKeyCell(gridPick.row, gridPick.col,
+                keyboardRoot.setLastPerKeyColorFromQmlColor(c)
+                App.keyboard.setKeyById(gridPick.keyId,
                                         Math.round(c.r * 255),
                                         Math.round(c.g * 255),
                                         Math.round(c.b * 255), false)
             }
+        }
+    }
+
+    ColorDialog {
+        id: kbGridBatchColorDialog
+        title: qsTr("Selection color")
+        onAccepted: {
+            if (keyboardRoot.selectedPerKeyIds.length === 0)
+                return
+            var c = kbGridBatchColorDialog.selectedColor
+            keyboardRoot.setLastPerKeyColorFromQmlColor(c)
+            App.keyboard.setKeysByIdColor(
+                keyboardRoot.selectedPerKeyIds,
+                Math.round(c.r * 255),
+                Math.round(c.g * 255),
+                Math.round(c.b * 255),
+                false)
         }
     }
 
@@ -916,28 +940,71 @@ Item {
                     width: parent.width
                     Kirigami.Heading {
                         level: 4
-                        text: qsTr("Software (user): per-key grid")
+                        text: qsTr("Software (user): keyboard layout")
                     }
                     Label {
                         wrapMode: Text.WordWrap
                         Layout.fillWidth: true
-                        text: qsTr("Each cell matches the keyboard as you see it: row 1 is the top (number row), column 1 is the left. Full keyboard is %1 rows × %2 columns (same matrix as animation DSL and screen follow).")
-                            .arg(App.keyboard.gridRows).arg(App.keyboard.gridCols)
+                        text: qsTr("Pick real keys directly from the layout. Click to set one key; drag to select multiple keys and apply one color to all.")
                         font.italic: true
                     }
-                    KeyColorGrid {
+                    KeyboardLayoutView {
                         keyboard: App.keyboard
                         Layout.fillWidth: true
-                        onCellClicked: function (row, col) {
-                            gridPick.row = row
-                            gridPick.col = col
+                        selectedKeyIds: keyboardRoot.selectedPerKeyIds
+                        onKeyActivated: function (keyId) {
+                            keyboardRoot.activePerKeyId = keyId
+                            keyboardRoot.selectedPerKeyIds = [keyId]
+                            gridPick.keyId = keyId
                             kbGridColorDialog.open()
+                        }
+                        onSelectionChanged: function (keyIds) {
+                            keyboardRoot.selectedPerKeyIds = keyIds
+                            keyboardRoot.activePerKeyId = keyIds.length > 0 ? String(keyIds[0]) : ""
                         }
                     }
                     RowLayout {
+                        Label {
+                            text: keyboardRoot.selectedPerKeyIds.length > 0
+                                  ? qsTr("Selected: %1 key(s)").arg(keyboardRoot.selectedPerKeyIds.length)
+                                  : qsTr("Selected: none")
+                        }
+                        Label {
+                            visible: keyboardRoot.activePerKeyId.length > 0
+                            text: qsTr("Active key: %1").arg(keyboardRoot.activePerKeyId)
+                        }
+                        Rectangle {
+                            width: Kirigami.Units.gridUnit * 2
+                            height: Kirigami.Units.gridUnit
+                            radius: 3
+                            border.width: 1
+                            border.color: Qt.alpha(Kirigami.Theme.textColor, 0.45)
+                            color: keyboardRoot.lastPerKeyColor
+                            ToolTip.visible: swatchMouse.containsMouse
+                            ToolTip.text: qsTr("Last selected per-key color")
+                            MouseArea {
+                                id: swatchMouse
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                acceptedButtons: Qt.NoButton
+                            }
+                        }
                         Button {
-                            text: qsTr("Clear grid")
-                            onClicked: App.keyboard.clearKeyGrid()
+                            text: qsTr("Color selection")
+                            enabled: keyboardRoot.selectedPerKeyIds.length > 0
+                            onClicked: kbGridBatchColorDialog.open()
+                        }
+                        Button {
+                            text: qsTr("Clear selection")
+                            enabled: keyboardRoot.selectedPerKeyIds.length > 0
+                            onClicked: keyboardRoot.selectedPerKeyIds = []
+                        }
+                        Button {
+                            text: qsTr("Clear all key colors")
+                            onClicked: {
+                                keyboardRoot.selectedPerKeyIds = []
+                                App.keyboard.clearKeyGrid()
+                            }
                         }
                     }
                 }
@@ -1140,18 +1207,9 @@ Item {
             Button {
                 text: qsTr("Power off")
                 ToolTip.visible: hovered
-                ToolTip.text: qsTr("Turn keyboard backlight off. Current effect is saved for Power on.")
+                ToolTip.text: qsTr("Turn keyboard backlight off.")
                 enabled: App.keyboard.connected
                 onClicked: App.keyboard.powerOff()
-            }
-            Button {
-                text: qsTr("Power on")
-                ToolTip.visible: hovered
-                ToolTip.text: App.keyboard.replayPowerOnAvailable
-                              ? qsTr("Restore the backlight state from before Power off.")
-                              : qsTr("Use after Power off once a snapshot exists.")
-                enabled: App.keyboard.connected && App.keyboard.replayPowerOnAvailable
-                onClicked: App.keyboard.powerOnReplay()
             }
             Item {
                 Layout.fillWidth: true

@@ -155,14 +155,16 @@ O separador lateral (`keyboardSubNavIndex` 0…6) corresponde ao `StackLayout` i
 | 0 | Effect (firmware) | Não (auto com debounce ~200 ms ao editar) | `KeyboardBackend.applyEffect(…)` |
 | 1 | Palette slot configuration | Sim | `setPaletteSlotRgb(slot, r, g, b)` — **só** grava RGB no slot do teclado |
 | 2 | Solid color | Não (auto com debounce ~200 ms na aba) | `setSolidNamed` ou `setSolidRgb` |
-| 3 | Per-key grid | Sim | `applyKeyGrid(true)` |
+| 3 | Keyboard layout (per-key) | Sim | `applyKeyGrid(true)` |
 | 4 | Animation file | Não | `playAnimationFile` / `stopFollowOrAnimation` (animação) |
 | 5 | Follow screen | Não | `startFollowScreen` / `stopFollowOrAnimation` |
 | 6 | Tools | Não | `demoTestPattern`, `freezeAnimation` (ações imediatas) |
 
 **Bloco Device (brilho)** no topo do scroll do teclado: **oculto** nas abas **Palette slot configuration** e **Tools** (índices 1 e 6); visível nas restantes.
 
-**Grelha per-key na GUI:** a matriz mostrada segue o teclado **visto de cima** — linha 1 = topo (fileira dos números), coluna 1 = esquerda. No protocolo USB, o índice de linha do `ite8291r3-ctl` / `set_key_colors` tem **linha 0 na base** (como no `screen_mode` do upstream, `getpixel((col, 5 - row))`). O backend (`color_map_ui_to_device` em `per_key_grid.py`) faz a conversão ao aplicar a grelha. **Animação DSL** (`pos row col …`) e **follow-screen** mantêm coordenadas no **espaço do dispositivo** (igual ao `ite8291r3-ctl`), por compatibilidade com scripts e referências existentes.
+**Per-key semântico na GUI:** a aba mostra um **layout de teclado com teclas reais** (com labels e largura variável), não só uma grelha numérica. O utilizador pode clicar numa tecla para cor individual e usar arraste para seleção em lote. Internamente, cada tecla usa `keyId` e o backend traduz `keyId -> (row,col)` em `per_key_grid.py` antes de aplicar `set_key_colors`.
+
+**Mapeamento para firmware:** no protocolo USB, o índice de linha do `ite8291r3-ctl` / `set_key_colors` tem **linha 0 na base** (como no `screen_mode` upstream, `getpixel((col, 5 - row))`). Por isso, ao aplicar per-key da GUI, o backend usa `color_map_ui_to_device` para inverter linhas. **Animação DSL** (`pos row col …`) e **follow-screen** mantêm coordenadas numéricas no **espaço do dispositivo** por compatibilidade com scripts e referências existentes.
 
 **Controlos do separador 0 (efeito firmware) sempre visíveis:** velocidade, combo “cor da paleta”, direção, reactive, save. O Python **filtra** com `EFFECT_KWARGS`; para muitos efeitos, **direção ou reactive não fazem nada**, e para `rainbow` **velocidade e cor de slot** não entram no pacote.
 

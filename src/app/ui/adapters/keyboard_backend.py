@@ -17,7 +17,11 @@ from avell_storm_rgb.application.screen_follow_dispatch import (
 from avell_storm_rgb.application.screen_follow_session import is_wayland_session
 from avell_storm_rgb.domain.anim_dsl import run_animation_lines
 from avell_storm_rgb.domain.keyboard_solid_colors import SOLID_COLOR_NAMES
-from avell_storm_rgb.domain.per_key_grid import color_map_ui_to_device
+from avell_storm_rgb.domain.per_key_grid import (
+    KEY_LAYOUT_KEYS,
+    color_map_ui_to_device,
+    key_id_to_ui_cell,
+)
 from avell_storm_rgb.infrastructure.usb.ite8291_usb import (
     KEYBOARD_DIRECTIONS,
     KEYBOARD_EFFECTS,
@@ -189,6 +193,10 @@ class KeyboardBackend(QObject):
     def gridCols(self) -> int:
         return NUM_COLS
 
+    @Property("QVariantList", constant=True)
+    def keyLayoutKeys(self) -> list[dict[str, int | str]]:
+        return KEY_LAYOUT_KEYS
+
     @Property(int, notify=keyGridChanged)
     def keyGridEpoch(self) -> int:
         return self._key_grid_epoch
@@ -205,6 +213,14 @@ class KeyboardBackend(QObject):
             return "#353535"
         r, g, b = t
         return f"#{r:02x}{g:02x}{b:02x}"
+
+    @Slot(str, result=str)
+    def keyHexById(self, key_id: str) -> str:
+        try:
+            row, col = key_id_to_ui_cell(key_id)
+        except ValueError:
+            return "#353535"
+        return self.keyCellHex(row, col)
 
     def _apply_inspect(self, fw: str, brightness: int, off: bool) -> None:
         self._fw = fw
@@ -651,6 +667,47 @@ class KeyboardBackend(QObject):
         )
         self._bump_key_grid()
 
+        if apply_now:
+
+            def task() -> None:
+                if self._kb is None:
+                    return
+                self._kb.set_key_colors(color_map_ui_to_device(dict(self._key_colors)))
+
+            self._worker.submit(task)
+
+    @Slot(str, int, int, int, bool)
+    def setKeyById(self, key_id: str, r: int, g: int, b: int, apply_now: bool) -> None:
+        try:
+            row, col = key_id_to_ui_cell(key_id)
+        except ValueError:
+            return
+        self.setKeyCell(row, col, r, g, b, apply_now)
+
+    @Slot("QVariantList", int, int, int, bool)
+    def setKeysByIdColor(
+        self,
+        key_ids: list[str],
+        r: int,
+        g: int,
+        b: int,
+        apply_now: bool,
+    ) -> None:
+        rv = max(0, min(255, r))
+        gv = max(0, min(255, g))
+        bv = max(0, min(255, b))
+        changed = False
+        for raw_key_id in key_ids:
+            key_id = str(raw_key_id)
+            try:
+                row, col = key_id_to_ui_cell(key_id)
+            except ValueError:
+                continue
+            self._key_colors[(row, col)] = (rv, gv, bv)
+            changed = True
+        if not changed:
+            return
+        self._bump_key_grid()
         if apply_now:
 
             def task() -> None:

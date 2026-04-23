@@ -68,16 +68,16 @@ Kirigami.ApplicationWindow {
 
     function fillKeyboardSubNavModel() {
         keyboardSubNavModel.clear()
-        keyboardSubNavModel.append({ rowKind: "header", headerText: qsTr("Firmware"), itemText: "", page: -1 })
-        keyboardSubNavModel.append({ rowKind: "item", headerText: "", itemText: qsTr("Effect"), page: 0 })
-        keyboardSubNavModel.append({ rowKind: "item", headerText: "", itemText: qsTr("Palette slot configuration"), page: 1 })
-        keyboardSubNavModel.append({ rowKind: "header", headerText: qsTr("User-defined"), itemText: "", page: -1 })
-        keyboardSubNavModel.append({ rowKind: "item", headerText: "", itemText: qsTr("Solid color"), page: 2 })
-        keyboardSubNavModel.append({ rowKind: "item", headerText: "", itemText: qsTr("Per-key grid"), page: 3 })
-        keyboardSubNavModel.append({ rowKind: "item", headerText: "", itemText: qsTr("Animation file"), page: 4 })
-        keyboardSubNavModel.append({ rowKind: "item", headerText: "", itemText: qsTr("Follow screen"), page: 5 })
-        keyboardSubNavModel.append({ rowKind: "header", headerText: qsTr("Extra"), itemText: "", page: -1 })
-        keyboardSubNavModel.append({ rowKind: "item", headerText: "", itemText: qsTr("Tools"), page: 6 })
+        keyboardSubNavModel.append({ rowKind: "header", headerText: qsTr("Firmware"), itemText: "", iconName: "", page: -1 })
+        keyboardSubNavModel.append({ rowKind: "item", headerText: "", itemText: qsTr("Effect"), iconName: "preferences-desktop-effects", page: 0 })
+        keyboardSubNavModel.append({ rowKind: "item", headerText: "", itemText: qsTr("Palette slot configuration"), iconName: "color-management", page: 1 })
+        keyboardSubNavModel.append({ rowKind: "header", headerText: qsTr("User-defined"), itemText: "", iconName: "", page: -1 })
+        keyboardSubNavModel.append({ rowKind: "item", headerText: "", itemText: qsTr("Solid color"), iconName: "draw-brush", page: 2 })
+        keyboardSubNavModel.append({ rowKind: "item", headerText: "", itemText: qsTr("Per-key grid"), iconName: "input-keyboard-virtual", page: 3 })
+        keyboardSubNavModel.append({ rowKind: "item", headerText: "", itemText: qsTr("Animation file"), iconName: "media-playlist-repeat", page: 4 })
+        keyboardSubNavModel.append({ rowKind: "item", headerText: "", itemText: qsTr("Follow screen"), iconName: "video-display", page: 5 })
+        keyboardSubNavModel.append({ rowKind: "header", headerText: qsTr("Extra"), itemText: "", iconName: "", page: -1 })
+        keyboardSubNavModel.append({ rowKind: "item", headerText: "", itemText: qsTr("Tools"), iconName: "applications-system", page: 6 })
     }
 
     function syncKeyboardSubNavListHighlight() {
@@ -405,12 +405,29 @@ Kirigami.ApplicationWindow {
                     ItemDelegate {
                         Layout.fillWidth: true
                         visible: model.rowKind === "item"
-                        text: model.itemText
+                        text: ""
                         highlighted: ListView.isCurrentItem
                         topPadding: Kirigami.Units.mediumSpacing
                         bottomPadding: Kirigami.Units.mediumSpacing
                         leftPadding: Kirigami.Units.mediumSpacing
                         rightPadding: Kirigami.Units.mediumSpacing
+                        contentItem: RowLayout {
+                            spacing: Kirigami.Units.smallSpacing
+                            KirigamiPrimitives.Icon {
+                                source: model.iconName
+                                implicitWidth: Kirigami.Units.iconSizes.small
+                                implicitHeight: Kirigami.Units.iconSizes.small
+                                isMask: true
+                                color: Kirigami.Theme.textColor
+                                fallback: "applications-other"
+                            }
+                            Label {
+                                text: model.itemText
+                                Layout.fillWidth: true
+                                elide: Text.ElideRight
+                                font.weight: ListView.isCurrentItem ? Font.DemiBold : Font.Normal
+                            }
+                        }
                         onClicked: appRoot.keyboardSubNavIndex = model.page
                     }
                 }
