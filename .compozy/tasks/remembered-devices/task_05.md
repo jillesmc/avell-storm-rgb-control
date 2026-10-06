@@ -71,7 +71,7 @@ This task adds `avell-storm-rgb state show` and `avell-storm-rgb state restore`.
 
 ## Completion Notes
 
-- Human output and the example state file are asserted **against `_dx.md` itself** (the tests parse the golden path and the `## State file` JSON block), so contract drift fails the suite.
+- Human output and the example state file are copied **verbatim from `_dx.md`** into `tests/test_cli_state.py` (no runtime dependency on `.compozy/`, which may be archived after merge).
 - `--json` with no state file prints `{"path": …, "results": []}` (not specified in `_dx.md`; mirrors `state show --json`).
 - `tests/backend_fakes.py` no longer imports PySide6 at module level, so the CLI tests reuse the same fakes without Qt.
 - Evidence: `tests/test_cli_state.py` (16 passed: UT-070–080, E2E-001–003 + 2 extra) and `state -h` in `tests/test_cli_help.py`; full suite 131 passed; the CLI imports with PySide6 blocked.

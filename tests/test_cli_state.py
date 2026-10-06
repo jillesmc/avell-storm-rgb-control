@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import re
 from pathlib import Path
 
 import pytest
@@ -21,23 +20,52 @@ from avell_storm_rgb.application.device_state import (
 )
 from backend_fakes import FakeKeyboard, FakeLedBar
 
-DX = (Path(__file__).resolve().parents[1] / ".compozy/tasks/remembered-devices/_dx.md").read_text()
+# Verbatim from .compozy/tasks/remembered-devices/_dx.md (golden path + "State file" example).
 DX_PATH = "/home/jilles/.config/avell-storm-rgb/state.json"
+DX_SHOW = ['State file: /home/jilles/.config/avell-storm-rgb/state.json', 'keyboard  048d:ce00  remembered  light on   firmware effect wave (speed 5, brightness 40, direction up)', '                                            brightness 40 · palette slots 1, 3', 'led-bar   048d:7001  remembered  light on   breathing · 4 colours · brightness 75 · speed 3']
+DX_RESTORE = ['led-bar   048d:7001  restored: breathing · 4 colours · brightness 75 · speed 3', 'keyboard  048d:ce00  restored: firmware effect wave (speed 5, brightness 40, direction up)']
+DX_EXAMPLE_STATE = """{
+  "version": 1,
+  "devices": {
+    "keyboard": {
+      "usb_id": "048d:ce00",
+      "remembered": true,
+      "power": "on",
+      "brightness": 40,
+      "palette": { "1": [255, 0, 0], "3": [255, 119, 0] },
+      "look": {
+        "mode": "firmware_effect",
+        "effect": "wave",
+        "speed": 5,
+        "brightness": 40,
+        "color": "random",
+        "direction": "up",
+        "reactive": false,
+        "save": false
+      }
+    },
+    "led_bar": {
+      "usb_id": "048d:7001",
+      "remembered": true,
+      "power": "on",
+      "look": {
+        "palette": [[255, 0, 0], [255, 80, 0], [255, 160, 0], [255, 200, 0]],
+        "effect": "breathing",
+        "brightness": 75,
+        "speed": 3
+      }
+    }
+  }
+}
+"""
 
 
 def _dx_console(after: str) -> list[str]:
-    """Output lines printed after the console line ``$ <after>`` in the _dx.md golden path."""
-    block = DX.split("$ " + after + "\n", 1)[1]
-    out = []
-    for line in block.splitlines():
-        if line.startswith("$") or line.startswith("#") or line == "" or line.startswith("```"):
-            break
-        out.append(line)
-    return out
+    return {"avell-storm-rgb state show": DX_SHOW, "avell-storm-rgb state restore": DX_RESTORE}[after]
 
 
 def _dx_example_state() -> str:
-    return re.search(r"## State file.*?```json\n(.*?)```", DX, re.S).group(1)
+    return DX_EXAMPLE_STATE
 
 
 @pytest.fixture
