@@ -23,11 +23,11 @@ from avell_storm_rgb.domain.per_key_grid import (
     key_id_to_ui_cell,
 )
 from avell_storm_rgb.infrastructure.usb.ite8291_usb import (
-    KEYBOARD_DIRECTIONS,
+    KEYBOARD_EFFECT_PARAMS,
     KEYBOARD_EFFECTS,
-    KEYBOARD_PALETTE_SLOT_COLORS,
     NUM_COLS,
     NUM_ROWS,
+    keyboard_effect_kwargs,
 )
 
 from app.core.usb_worker import UsbWorker
@@ -47,19 +47,6 @@ class _BrightnessTarget(enum.IntEnum):
 
     GLOBAL_ONLY = 0
     FIRMWARE_REAPPLY = 1
-
-
-EFFECT_KWARGS: dict[str, frozenset[str]] = {
-    "breathing": frozenset({"speed", "brightness", "color", "save"}),
-    "wave": frozenset({"speed", "brightness", "direction", "save"}),
-    "random": frozenset({"speed", "brightness", "color", "reactive", "save"}),
-    "rainbow": frozenset({"brightness", "save"}),
-    "ripple": frozenset({"speed", "brightness", "color", "reactive", "save"}),
-    "marquee": frozenset({"speed", "brightness", "save"}),
-    "raindrop": frozenset({"speed", "brightness", "color", "save"}),
-    "aurora": frozenset({"speed", "brightness", "color", "reactive", "save"}),
-    "fireworks": frozenset({"speed", "brightness", "color", "reactive", "save"}),
-}
 
 
 class KeyboardBackend(QObject):
@@ -286,7 +273,7 @@ class KeyboardBackend(QObject):
     def effectSupports(self, effect_name: str, capability: str) -> bool:
         """Whether ``capability`` is used by ``effect_name`` (speed, color, direction, reactive, save)."""
 
-        caps = EFFECT_KWARGS.get(effect_name, frozenset())
+        caps = KEYBOARD_EFFECT_PARAMS.get(effect_name, frozenset())
         return capability in caps
 
     @Slot(int, int)
@@ -435,23 +422,15 @@ class KeyboardBackend(QObject):
         reactive: bool,
         save: bool,
     ) -> dict[str, int]:
-        keys = EFFECT_KWARGS.get(name, frozenset())
-        out: dict[str, int] = {}
-        if "speed" in keys:
-            out["speed"] = max(0, min(10, speed))
-        if "brightness" in keys:
-            out["brightness"] = max(0, min(50, brightness))
-        if "color" in keys:
-            out["color"] = KEYBOARD_PALETTE_SLOT_COLORS.get(
-                color_name.lower(), KEYBOARD_PALETTE_SLOT_COLORS["random"]
-            )
-        if "direction" in keys:
-            out["direction"] = KEYBOARD_DIRECTIONS.get(direction_name.lower(), 0)
-        if "reactive" in keys:
-            out["reactive"] = 1 if reactive else 0
-        if "save" in keys:
-            out["save"] = 1 if save else 0
-        return out
+        return keyboard_effect_kwargs(
+            name,
+            speed=speed,
+            brightness=brightness,
+            color=color_name,
+            direction=direction_name,
+            reactive=reactive,
+            save=save,
+        )
 
     @Slot(str, int, int, str, str, bool, bool)
     def applyEffect(

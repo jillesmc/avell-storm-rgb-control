@@ -1,5 +1,5 @@
 ---
-status: pending
+status: completed
 title: "Task 1: Saved device state core"
 type: backend
 complexity: medium
@@ -34,11 +34,11 @@ This task adds the Qt-free model, JSON store and restore functions for the saved
 
 ## Subtasks
 
-- [ ] 1.1 Move `EFFECT_KWARGS` → `KEYBOARD_EFFECT_PARAMS` and update the importer.
-- [ ] 1.2 Model dataclasses + strict validation + JSON (de)serialisation (`version: 1`).
-- [ ] 1.3 `DeviceStateStore`: path resolution, `load`, atomic `save` (0700 dir / 0600 file), `quarantine`, `exists`.
-- [ ] 1.4 `restore_keyboard`, `restore_led_bar`, `RestorePlan`, `describe_look`.
-- [ ] 1.5 `device_facade`: `usb_id` filter for `open_keyboard` / `open_led_bar`, and `usb_id_of`.
+- [x] 1.1 Move `EFFECT_KWARGS` → `KEYBOARD_EFFECT_PARAMS` and update the importer.
+- [x] 1.2 Model dataclasses + strict validation + JSON (de)serialisation (`version: 1`).
+- [x] 1.3 `DeviceStateStore`: path resolution, `load`, atomic `save` (0700 dir / 0600 file), `quarantine`, `exists`.
+- [x] 1.4 `restore_keyboard`, `restore_led_bar`, `RestorePlan`, `describe_look`.
+- [x] 1.5 `device_facade`: `usb_id` filter for `open_keyboard` / `open_led_bar`, and `usb_id_of`.
 
 ## Implementation Details
 
@@ -71,11 +71,16 @@ The new module lives at `src/avell_storm_rgb/application/device_state.py`. Follo
 
 ## Tests
 
-- [ ] UT-001, UT-002, UT-003, UT-004, UT-005, UT-006, UT-007, UT-008, UT-009 — store, validation, quarantine, atomicity, Qt-free import
-- [ ] UT-010, UT-011, UT-012, UT-013, UT-014, UT-015, UT-016, UT-017 — restore functions and `describe_look`
-- [ ] UT-020, UT-021, UT-022 — open by USB id
+- [x] UT-001, UT-002, UT-003, UT-004, UT-005, UT-006, UT-007, UT-008, UT-009 — store, validation, quarantine, atomicity, Qt-free import
+- [x] UT-010, UT-011, UT-012, UT-013, UT-014, UT-015, UT-016, UT-017 — restore functions and `describe_look`
+- [x] UT-020, UT-021, UT-022 — open by USB id
 
 ## Success Criteria
 
 - `make test` is green, including the existing suites.
 - `grep -rn EFFECT_KWARGS src` finds nothing.
+
+## Completion Notes
+
+- `KEYBOARD_EFFECT_PARAMS` is **derived** from the builders (`_effect_factory` exposes `params`), so there is no second table. The kwarg mapping moved too, as `ite8291_usb.keyboard_effect_kwargs`; `KeyboardBackend._effect_kwargs` delegates to it. No payload bytes changed.
+- Evidence: `tests/test_device_state.py` and `tests/test_device_facade_usb_id.py` (23 passed); full `pytest -m "not hardware"` 72 passed; `grep EFFECT_KWARGS` → none.

@@ -96,6 +96,7 @@ def _effect_factory(effect_id: int, args: dict[str, tuple[int, int]]):
         res[effect_attrs.EFFECT] = effect_id
         return res
 
+    f.params = frozenset(args)  # type: ignore[attr-defined]
     return f
 
 
@@ -156,6 +157,41 @@ KEYBOARD_EFFECTS: dict[str, Any] = {
         "save": (effect_attrs.SAVE, 0),
     }),
 }
+
+# Parameters each effect builder accepts (speed, brightness, color, direction, reactive, save).
+KEYBOARD_EFFECT_PARAMS: dict[str, frozenset[str]] = {
+    name: builder.params for name, builder in KEYBOARD_EFFECTS.items()
+}
+
+
+def keyboard_effect_kwargs(
+    name: str,
+    *,
+    speed: int,
+    brightness: int,
+    color: str,
+    direction: str,
+    reactive: bool,
+    save: bool,
+) -> dict[str, int]:
+    """Clamp and map UI/saved values to the kwargs ``KEYBOARD_EFFECTS[name]`` accepts."""
+    keys = KEYBOARD_EFFECT_PARAMS.get(name, frozenset())
+    out: dict[str, int] = {}
+    if "speed" in keys:
+        out["speed"] = max(0, min(10, speed))
+    if "brightness" in keys:
+        out["brightness"] = max(0, min(50, brightness))
+    if "color" in keys:
+        out["color"] = KEYBOARD_PALETTE_SLOT_COLORS.get(
+            color.lower(), KEYBOARD_PALETTE_SLOT_COLORS["random"]
+        )
+    if "direction" in keys:
+        out["direction"] = KEYBOARD_DIRECTIONS.get(direction.lower(), 0)
+    if "reactive" in keys:
+        out["reactive"] = 1 if reactive else 0
+    if "save" in keys:
+        out["save"] = 1 if save else 0
+    return out
 
 
 class UsbChannel:

@@ -1,4 +1,4 @@
-"""KeyboardBackend.effectSupports mirrors EFFECT_KWARGS."""
+"""KeyboardBackend.effectSupports mirrors KEYBOARD_EFFECT_PARAMS."""
 
 from __future__ import annotations
 
