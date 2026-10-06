@@ -68,6 +68,7 @@ class AppFacade(QObject):
     deviceConnectionChanged = Signal()
     closeToTrayChanged = Signal()
     deviceMemoryChanged = Signal()
+    savedLightChanged = Signal()
 
     def __init__(
         self, parent: QObject | None = None, *, store: DeviceStateStore | None = None
@@ -338,6 +339,16 @@ class AppFacade(QObject):
     def ledBarRemembered(self) -> bool:
         return self._is_remembered("led_bar")
 
+    @Property(bool, notify=savedLightChanged)
+    def keyboardSavedLightOn(self) -> bool:
+        saved = self._saved.keyboard
+        return saved is not None and saved.power == "on"
+
+    @Property(bool, notify=savedLightChanged)
+    def ledBarSavedLightOn(self) -> bool:
+        saved = self._saved.led_bar
+        return saved is not None and saved.power == "on"
+
     @Property(str, notify=deviceMemoryChanged)
     def keyboardUnavailableReason(self) -> str:
         return self._unavailable["keyboard"]
@@ -485,3 +496,5 @@ class AppFacade(QObject):
                 fields["palette"] = {**saved.palette, **changes["palette"]}
         self._put(kind, replace(saved, **fields))
         self._save()
+        if "power" in fields and fields["power"] != saved.power:
+            self.savedLightChanged.emit()

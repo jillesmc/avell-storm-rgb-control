@@ -16,6 +16,8 @@ Item {
     property var appShell
     /** Bound from main.qml middle nav */
     property int subNavIndex: 0
+    /** Remembered but not connected (not found / USB error): body replaced by a placeholder. */
+    readonly property bool deviceUnavailable: App.keyboardUnavailableReason.length > 0
 
     readonly property int pageFirmware: 0
     readonly property int pagePalette: 1
@@ -382,7 +384,18 @@ Item {
         })
     }
 
+    DeviceUnavailablePanel {
+        objectName: "keyboardUnavailable"
+        anchors.fill: parent
+        visible: keyboardRoot.deviceUnavailable
+        deviceTitle: qsTr("Keyboard")
+        reason: App.keyboardUnavailableReason
+        onRetryRequested: App.retryDevice("keyboard")
+        onForgetRequested: App.forgetDevice("keyboard")
+    }
+
     Item {
+        visible: !keyboardRoot.deviceUnavailable
         anchors.fill: parent
         anchors.leftMargin: Kirigami.Units.largeSpacing
         anchors.rightMargin: Kirigami.Units.largeSpacing

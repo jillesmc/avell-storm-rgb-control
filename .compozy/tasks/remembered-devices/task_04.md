@@ -1,5 +1,5 @@
 ---
-status: pending
+status: completed
 title: "Task 4: Sidebar shows remembered devices and their availability"
 type: frontend
 complexity: medium
@@ -32,10 +32,10 @@ The sidebar lists only remembered devices and marks unavailable ones. An unavail
 
 ## Subtasks
 
-- [ ] 4.1 Dynamic nav model and entries (remembered, unavailable subtitle, header visibility, fall back to Devices when the current entry disappears).
-- [ ] 4.2 `DeviceUnavailablePanel` and its use in `KeyboardPage.qml` / `LedBarPage.qml` (footer hidden in that state).
-- [ ] 4.3 Devices page copy (row tooltips, connected line, page hint).
-- [ ] 4.4 GUI E2E tests via `tests/gui_helpers.py` with `XDG_CONFIG_HOME=tmp_path` and fake USB.
+- [x] 4.1 Dynamic nav model and entries (remembered, unavailable subtitle, header visibility, fall back to Devices when the current entry disappears).
+- [x] 4.2 `DeviceUnavailablePanel` and its use in `KeyboardPage.qml` / `LedBarPage.qml` (footer hidden in that state).
+- [x] 4.3 Devices page copy (row tooltips, connected line, page hint).
+- [x] 4.4 GUI E2E tests via `tests/gui_helpers.py` with `XDG_CONFIG_HOME=tmp_path` and fake USB.
 
 ## Implementation Details
 
@@ -60,10 +60,18 @@ The sidebar lists only remembered devices and marks unavailable ones. An unavail
 
 ## Tests
 
-- [ ] E2E-004, E2E-005, E2E-006 — sidebar memory, light switch and disconnect, unavailable page
-- [ ] E2E-007 — no footer power buttons, no auto-connect checkbox, Apply buttons still present (covers task_02 and task_03 removals)
+- [x] E2E-004, E2E-005, E2E-006 — sidebar memory, light switch and disconnect, unavailable page
+- [x] E2E-007 — no footer power buttons, no auto-connect checkbox, Apply buttons still present (covers task_02 and task_03 removals)
 
 ## Success Criteria
 
 - `make test` is green with the `gui` extra.
 - No QML warnings about undefined `App.*` members at load (check stderr in the E2E run).
+
+## Completion Notes
+
+- The middle column (device tabs) is hidden while the device is unavailable (`showKeyboardSubNav` / `showLedSubNav` in `main.qml`); only the placeholder is shown.
+- The disabled switch of an unavailable device shows the **saved** light state (`App.keyboardSavedLightOn` / `App.ledBarSavedLightOn`, notify `savedLightChanged`). A separate signal is used so toggling the light never rebuilds the sidebar (which would destroy the switch mid-click).
+- ListView delegates have no `QObject` parent, so GUI tests look sidebar entries up through the visual item tree (`find_item`).
+- Offscreen screenshots reviewed: Devices page with the remembered keyboard; the LED bar unavailable page with Retry / Forget and no tabs column. The "Unavailable" subtitle and the existing "Enabled devices" header use `disabledTextColor`, which the offscreen Fusion palette renders almost invisible; under Breeze they are visible. **A manual look under Plasma is still useful (task_06 checklist).**
+- Evidence: `tests/test_gui_remembered_devices.py` (E2E-004–007, 4 passed ×3); full suite 114 passed; no QML warnings at load.

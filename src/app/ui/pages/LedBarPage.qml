@@ -12,6 +12,8 @@ Item {
     objectName: "ledBarPage"
     property var appShell
     property int subNavIndex: 0
+    /** Remembered but not connected (not found / USB error): body replaced by a placeholder. */
+    readonly property bool deviceUnavailable: App.ledBarUnavailableReason.length > 0
 
     property bool ledPreferNamed: true
     property string ledPickName: ""
@@ -75,7 +77,18 @@ Item {
         }
     }
 
+    DeviceUnavailablePanel {
+        objectName: "ledBarUnavailable"
+        anchors.fill: parent
+        visible: ledRoot.deviceUnavailable
+        deviceTitle: qsTr("LED bar")
+        reason: App.ledBarUnavailableReason
+        onRetryRequested: App.retryDevice("led_bar")
+        onForgetRequested: App.forgetDevice("led_bar")
+    }
+
     Item {
+        visible: !ledRoot.deviceUnavailable
         anchors.fill: parent
         anchors.leftMargin: Kirigami.Units.largeSpacing
         anchors.rightMargin: Kirigami.Units.largeSpacing

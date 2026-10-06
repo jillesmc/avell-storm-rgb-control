@@ -149,7 +149,7 @@ ColumnLayout {
                                         color: deviceRow.openInApp ? Kirigami.Theme.linkColor : Kirigami.Theme.textColor
                                     }
                                     Label {
-                                        text: qsTr("Open in this app — use the Keyboard or LED bar tab.")
+                                        text: qsTr("Remembered — configure it from the sidebar.")
                                         wrapMode: Text.WordWrap
                                         Layout.fillWidth: true
                                         font.pointSize: 9
@@ -166,8 +166,8 @@ ColumnLayout {
                                     Layout.preferredHeight: implicitHeight
                                     ToolTip.visible: hovered
                                     ToolTip.text: deviceRow.openInApp
-                                                   ? qsTr("Release the USB handle for this device in the GUI.")
-                                                   : qsTr("Claim this USB device for Keyboard or LED bar controls.")
+                                                   ? qsTr("Disconnect and forget this device. Its saved look is kept.")
+                                                   : qsTr("Connect and remember this device. It reconnects when the app opens.")
                                     onClicked: {
                                         if (deviceRow.openInApp)
                                             panel.appFacade.disconnectDeviceKind(model.kind)

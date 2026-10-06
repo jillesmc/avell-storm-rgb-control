@@ -43,6 +43,9 @@ Kirigami.ApplicationWindow {
     property int ledSubNavIndex: 0
 
     property string selectedKeyboardEffect: ""
+    /** Device tabs (middle column) only make sense while the device is not unavailable. */
+    readonly property bool showKeyboardSubNav: primarySection === 1 && App.keyboardUnavailableReason.length === 0
+    readonly property bool showLedSubNav: primarySection === 2 && App.ledBarUnavailableReason.length === 0
     property string ledSelectedPalette: ""
     property string ledSelectedEffect: ""
 
@@ -64,6 +67,57 @@ Kirigami.ApplicationWindow {
         } else {
             primarySidebarList.currentIndex = -1
         }
+    }
+
+    /** Sidebar entries: Devices, plus one entry per remembered device (rebuilt on deviceMemoryChanged). */
+    function rebuildPrimaryNav() {
+        primaryNavModel.clear()
+        primaryNavModel.append({
+            sectionName: "devices",
+            entryName: "sidebarDevicesEntry",
+            title: qsTr("Devices"),
+            iconName: "computer-laptop-symbolic",
+            page: 0,
+            showChevron: false,
+            showSwitch: false
+        })
+        if (App.keyboardRemembered) {
+            primaryNavModel.append({
+                sectionName: "enabled",
+                entryName: "sidebarKeyboardEntry",
+                title: qsTr("Keyboard"),
+                iconName: "input-keyboard-symbolic",
+                page: 1,
+                showChevron: true,
+                showSwitch: true
+            })
+        }
+        if (App.ledBarRemembered) {
+            primaryNavModel.append({
+                sectionName: "enabled",
+                entryName: "sidebarLedBarEntry",
+                title: qsTr("LED bar"),
+                iconName: "keyboard-spacebar",
+                page: 2,
+                showChevron: true,
+                showSwitch: true
+            })
+        }
+        /* The page of a device that was just forgotten has no entry any more: back to Devices. */
+        if ((appRoot.primarySection === 1 && !App.keyboardRemembered)
+                || (appRoot.primarySection === 2 && !App.ledBarRemembered)) {
+            appRoot.primarySection = 0
+            deviceContentStack.currentIndex = 0
+        }
+        appRoot.syncPrimarySidebarListIndex()
+    }
+
+    function unavailableReasonForPage(page) {
+        if (page === 1)
+            return App.keyboardUnavailableReason
+        if (page === 2)
+            return App.ledBarUnavailableReason
+        return ""
     }
 
     function fillKeyboardSubNavModel() {
@@ -104,30 +158,7 @@ Kirigami.ApplicationWindow {
         if (App.ledEffectNames.length > 0)
             ledSelectedEffect = App.ledEffectNames[0]
 
-        primaryNavModel.append({
-            sectionName: "devices",
-            title: qsTr("Devices"),
-            iconName: "computer-laptop-symbolic",
-            page: 0,
-            showChevron: false,
-            showSwitch: false
-        })
-        primaryNavModel.append({
-            sectionName: "enabled",
-            title: qsTr("Keyboard"),
-            iconName: "input-keyboard-symbolic",
-            page: 1,
-            showChevron: true,
-            showSwitch: true
-        })
-        primaryNavModel.append({
-            sectionName: "enabled",
-            title: qsTr("LED bar"),
-            iconName: "keyboard-spacebar",
-            page: 2,
-            showChevron: true,
-            showSwitch: true
-        })
+        appRoot.rebuildPrimaryNav()
         primarySidebarList.currentIndex = 0
 
         appRoot.fillKeyboardSubNavModel()
@@ -140,6 +171,13 @@ Kirigami.ApplicationWindow {
         target: appRoot
         function onPrimarySectionChanged() {
             syncPrimarySidebarListIndex()
+        }
+    }
+
+    Connections {
+        target: App
+        function onDeviceMemoryChanged() {
+            appRoot.rebuildPrimaryNav()
         }
     }
 
@@ -237,7 +275,10 @@ Kirigami.ApplicationWindow {
                     }
 
                     delegate: ItemDelegate {
+                        id: navEntry
+                        objectName: model.entryName
                         width: ListView.view.width
+                        readonly property string unavailableReason: appRoot.unavailableReasonForPage(model.page)
                         text: ""
                         icon.name: ""
                         topPadding: Kirigami.Units.mediumSpacing
@@ -255,16 +296,29 @@ Kirigami.ApplicationWindow {
                                 color: Kirigami.Theme.textColor
                                 fallback: "applications-other"
                             }
-                            Label {
-                                text: model.title
+                            ColumnLayout {
                                 Layout.fillWidth: true
-                                color: Kirigami.Theme.textColor
-                                elide: Text.ElideRight
-                                horizontalAlignment: Text.AlignLeft
+                                spacing: 0
+                                Label {
+                                    text: model.title
+                                    Layout.fillWidth: true
+                                    color: Kirigami.Theme.textColor
+                                    elide: Text.ElideRight
+                                    horizontalAlignment: Text.AlignLeft
+                                }
+                                Label {
+                                    /** Text, not only colour: the reason is on the device page. */
+                                    text: qsTr("Unavailable")
+                                    visible: navEntry.unavailableReason.length > 0
+                                    Layout.fillWidth: true
+                                    color: Kirigami.Theme.disabledTextColor
+                                    font.pixelSize: Kirigami.Theme.smallFont.pixelSize
+                                    elide: Text.ElideRight
+                                }
                             }
                             Label {
                                 text: "›"
-                                visible: model.showChevron
+                                visible: model.showChevron && navEntry.unavailableReason.length === 0
                                 color: Kirigami.Theme.disabledTextColor
                                 font.pointSize: Kirigami.Theme.defaultFont.pointSize + 1
                                 Layout.alignment: Qt.AlignVCenter
@@ -273,7 +327,10 @@ Kirigami.ApplicationWindow {
                                 objectName: model.page === 1 ? "keyboardLightSwitch" : "ledBarLightSwitch"
                                 visible: model.showSwitch
                                 /** Light on/off; connecting and forgetting live on the Devices page. */
-                                checked: model.page === 1 ? App.keyboard.lightOn : App.ledBar.lightOn
+                                /** While unavailable (disabled), show the saved light state. */
+                                checked: model.page === 1
+                                         ? (App.keyboard.connected ? App.keyboard.lightOn : App.keyboardSavedLightOn)
+                                         : (App.ledBar.connected ? App.ledBar.lightOn : App.ledBarSavedLightOn)
                                 enabled: model.page === 1 ? App.keyboard.connected : App.ledBar.connected
                                 scale: 0.9
                                 transformOrigin: Item.Center
@@ -361,9 +418,9 @@ Kirigami.ApplicationWindow {
         }
 
         Item {
-            Layout.preferredWidth: appRoot.primarySection === 1 ? Math.round(Kirigami.Units.gridUnit * 10.5) : 0
+            Layout.preferredWidth: appRoot.showKeyboardSubNav ? Math.round(Kirigami.Units.gridUnit * 10.5) : 0
             Layout.fillHeight: true
-            visible: appRoot.primarySection === 1
+            visible: appRoot.showKeyboardSubNav
             Rectangle {
                 anchors.fill: parent
                 color: appRoot.shellSubNavBg
@@ -451,9 +508,9 @@ Kirigami.ApplicationWindow {
         }
 
         Item {
-            Layout.preferredWidth: appRoot.primarySection === 2 ? Math.round(Kirigami.Units.gridUnit * 10.5) : 0
+            Layout.preferredWidth: appRoot.showLedSubNav ? Math.round(Kirigami.Units.gridUnit * 10.5) : 0
             Layout.fillHeight: true
-            visible: appRoot.primarySection === 2
+            visible: appRoot.showLedSubNav
             Rectangle {
                 anchors.fill: parent
                 color: appRoot.shellSubNavBg
@@ -506,9 +563,9 @@ Kirigami.ApplicationWindow {
         }
 
         Rectangle {
-            Layout.preferredWidth: (appRoot.primarySection === 1 || appRoot.primarySection === 2) ? 1 : 0
+            Layout.preferredWidth: (appRoot.showKeyboardSubNav || appRoot.showLedSubNav) ? 1 : 0
             Layout.fillHeight: true
-            visible: appRoot.primarySection === 1 || appRoot.primarySection === 2
+            visible: appRoot.showKeyboardSubNav || appRoot.showLedSubNav
             color: appRoot.shellDividerColor
         }
 

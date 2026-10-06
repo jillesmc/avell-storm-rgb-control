@@ -2,6 +2,7 @@ module components
 BusyOverlay 1.0 BusyOverlay.qml
 ColorWell 1.0 ColorWell.qml
 DeviceListPanel 1.0 DeviceListPanel.qml
+DeviceUnavailablePanel 1.0 DeviceUnavailablePanel.qml
 EffectCard 1.0 EffectCard.qml
 KeyColorGrid 1.0 KeyColorGrid.qml
 KeyboardLayoutView 1.0 KeyboardLayoutView.qml

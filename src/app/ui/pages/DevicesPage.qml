@@ -27,7 +27,7 @@ Kirigami.Page {
             appFacade: App
             deviceModel: App.devices
             lastError: App.state.lastError
-            devicesHint: qsTr("Select a device, then Connect. USB access usually needs udev rules or root — see README.")
+            devicesHint: qsTr("Connect a device to remember it. USB access usually needs udev rules — see README.")
             showHeaderRefresh: false
             onRefreshClicked: App.refreshDevices()
             onConnectRequested: function (kind, bus, addr) {
