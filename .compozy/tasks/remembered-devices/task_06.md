@@ -1,5 +1,5 @@
 ---
-status: in_progress
+status: completed
 title: "Task 6: Document remembered devices in both languages"
 type: docs
 complexity: low
@@ -37,7 +37,7 @@ This task updates the permanent docs (EN + pt-BR pairs) so that users and agents
 - [x] 6.1 Update the EN docs.
 - [x] 6.2 Update the pt-BR pairs.
 - [x] 6.3 Update the AGENTS rules.
-- [ ] 6.4 Run the link/pair/Mermaid checks; run the hardware checklist with the user.
+- [x] 6.4 Run the link/pair/Mermaid checks; run the hardware checklist with the user.
 
 ## Implementation Details
 
@@ -67,4 +67,10 @@ This task updates the permanent docs (EN + pt-BR pairs) so that users and agents
 
 - Done: OVERVIEW, ARCHITECTURE (layers, class diagram, state table, debts #3/#4/#6/#7), FLOWS (§2 startup restore, §3 saved effect, §7 light switch), GLOSSARY, FEATURE_MATRIX (state commands), DEVELOPMENT (tests, recipes, debugging), root README, DEVICE_FEATURES_DEEP_DIVE, all in EN + pt-BR; `AGENTS.md` and `src/app/AGENTS.md` rules.
 - Checks: link / anchor / pair / length script → 0 problems over 40 Markdown files; 24 Mermaid diagrams render; stale-term grep → only intentional history mentions.
-- **Open:** the manual hardware checklist (`_tests.md`, items 1–5) must be run with the user on the real laptop. The task stays `in_progress` until then.
+- **Hardware checklist (2026-10-06, real laptop: keyboard 048d:600b, LED bar 048d:7001), run by the agent at the user's request** with the real `AppFacade` offscreen and the CLI, one process per "app start":
+  1. First start migrated both devices; applied keyboard wave + LED rainbow/wave were saved; after scrambling the lights via CLI, the next start restored them (keyboard effect bytes `[3, 5, 40, 0, 1, 0]`). ✅
+  2. A saved forever animation resumed by itself at start; light-off stopped it in 0.01 s; light-on restarted it; applying wave stopped it again. ✅
+  3. Light off → restart kept the keyboard off (`inspect --power` = off); light on restored wave. `state show` / `state restore` restored scrambled lights without the GUI (exit 0). ✅
+  4. Disconnect + Connect in the same session reconnects the LED bar and remembers it again. ✅
+  - Not verified: Breeze rendering of the "Unavailable" subtitle (needs a look at the real window); unplug / other-port items do not apply (internal devices).
+  - Edge seen: when migration remembers a keyboard that is physically **off**, the saved light state is `on` while the switch (read from the device) shows off, until the user toggles it.
