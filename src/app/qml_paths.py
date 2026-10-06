@@ -9,6 +9,93 @@ from PySide6.QtCore import QLibraryInfo
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuickControls2 import QQuickStyle
 
+# Display / Wayland / X11 plugins must match the PySide6 Qt build (never distro copies).
+_DISTRO_QT_PLUGIN_BLOCKLIST = frozenset(
+    {
+        "platforms",
+        "egldeviceintegrations",
+        "xcbglintegrations",
+        "wayland-decoration-client",
+        "wayland-graphics-integration-client",
+        "wayland-shell-integration",
+    }
+)
+
+# Distro-only helpers (Breeze QQC2, icons, IME) — safe to prepend beside bundled Qt.
+_DISTRO_QT_PLUGIN_ALLOWLIST = frozenset(
+    {
+        "styles",
+        "platformthemes",
+        "iconengines",
+        "imageformats",
+        "platforminputcontexts",
+        "generic",
+        "tls",
+        "networkinformation",
+        "kiconthemes6",
+    }
+)
+
+
+def _distro_qt6_plugin_base_dirs() -> list[Path]:
+    out: list[Path] = []
+    for candidate in (Path("/usr/lib/qt6/plugins"), Path("/usr/lib64/qt6/plugins")):
+        if candidate.is_dir():
+            out.append(candidate.resolve())
+    return out
+
+
+def _pyside6_plugins_path() -> str | None:
+    plugins = QLibraryInfo.path(QLibraryInfo.LibraryPath.PluginsPath)
+    if not plugins:
+        return None
+    resolved = Path(plugins).resolve()
+    return str(resolved) if resolved.is_dir() else None
+
+
+def _distro_qt6_safe_plugin_paths() -> list[str]:
+    resolved: list[str] = []
+    for base in _distro_qt6_plugin_base_dirs():
+        for name in sorted(_DISTRO_QT_PLUGIN_ALLOWLIST):
+            sub = base / name
+            if sub.is_dir():
+                key = str(sub.resolve())
+                if key not in resolved:
+                    resolved.append(key)
+    return resolved
+
+
+def _is_unsafe_qt_plugin_path(entry: str) -> bool:
+    """True if loading platform plugins from this root would mix distro Qt with PySide6."""
+    try:
+        resolved = Path(entry).resolve()
+    except OSError:
+        return True
+    for base in _distro_qt6_plugin_base_dirs():
+        if resolved == base:
+            return True
+        if resolved.parent == base and resolved.name in _DISTRO_QT_PLUGIN_BLOCKLIST:
+            return True
+    return False
+
+
+def merge_qt_plugin_path(existing: str = "") -> list[str]:
+    """Ordered ``QT_PLUGIN_PATH`` entries: bundled Qt first, then distro style/icon plugins."""
+    merged: list[str] = []
+    pyside = _pyside6_plugins_path()
+    if pyside:
+        merged.append(pyside)
+    for part in _distro_qt6_safe_plugin_paths():
+        if part not in merged:
+            merged.append(part)
+    tail = existing.strip() or os.environ.get("QT_PLUGIN_PATH", "").strip()
+    for part in (x.strip() for x in tail.split(os.pathsep) if x.strip()):
+        if _is_unsafe_qt_plugin_path(part):
+            continue
+        if part not in merged:
+            merged.append(part)
+    return merged
+
 
 def ensure_qml_import_path_for_process() -> None:
     """Prepend system Qt6 QML roots to :envvar:`QML_IMPORT_PATH`.
@@ -42,17 +129,14 @@ def ensure_qml_import_path_for_process() -> None:
 
 
 def ensure_qt_plugin_path_for_process() -> None:
-    """Prepend distro Qt6 plugin dirs so style/platform plugins can load (optional)."""
-    prepend_resolved: list[str] = []
-    for candidate in (Path("/usr/lib/qt6/plugins"), Path("/usr/lib64/qt6/plugins")):
-        if candidate.is_dir():
-            prepend_resolved.append(str(candidate.resolve()))
-    existing = os.environ.get("QT_PLUGIN_PATH", "").strip()
-    tail = [x.strip() for x in existing.split(os.pathsep) if x.strip()]
-    merged: list[str] = []
-    for part in prepend_resolved + tail:
-        if part not in merged:
-            merged.append(part)
+    """Set ``QT_PLUGIN_PATH`` for Breeze/icons without mixing distro display plugins.
+
+    PySide6 ships its own Qt; prepending ``/usr/lib/qt6/plugins`` makes Qt load
+    system ``platforms/libqwayland.so`` / ``libqxcb.so`` built against distro
+    ``libQt6*.so``, which aborts at startup (ABI mismatch). Style and icon plugins
+    live in separate subdirs and are merged explicitly.
+    """
+    merged = merge_qt_plugin_path()
     if merged:
         os.environ["QT_PLUGIN_PATH"] = os.pathsep.join(merged)
 

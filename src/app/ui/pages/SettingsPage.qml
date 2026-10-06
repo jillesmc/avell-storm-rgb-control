@@ -8,6 +8,11 @@ Kirigami.Page {
     objectName: "settingsPage"
     title: ""
 
+    onVisibleChanged: {
+        if (visible)
+            App.refreshLaunchAtLogin()
+    }
+
     leftPadding: Kirigami.Units.largeSpacing
     rightPadding: Kirigami.Units.largeSpacing
     topPadding: Kirigami.Units.largeSpacing
@@ -47,10 +52,35 @@ Kirigami.Page {
                 CheckBox {
                     text: qsTr("Close to system tray (hide window instead of quitting)")
                     checked: App.closeToTray
-                    onToggled: function (c) { App.closeToTray = c }
+                    onToggled: App.closeToTray = checked
                     ToolTip.visible: hovered
                     ToolTip.text: qsTr("Quit fully from the tray menu (Quit) or the button below.")
                     Layout.fillWidth: true
+                }
+
+                CheckBox {
+                    objectName: "launchAtLoginCheck"
+                    text: qsTr("Start at login (system tray only)")
+                    checked: App.launchAtLogin
+                    onToggled: App.launchAtLogin = checked
+                    ToolTip.visible: hovered
+                    ToolTip.text: qsTr("Adds an entry under ~/.config/autostart so the app launches hidden in the tray when you log in.")
+                    Layout.fillWidth: true
+                }
+
+                Kirigami.InlineMessage {
+                    objectName: "settingsErrorInline"
+                    Layout.fillWidth: true
+                    visible: App.settingsError.length > 0
+                    type: Kirigami.MessageType.Error
+                    text: App.settingsError
+                    actions: [
+                        Kirigami.Action {
+                            text: qsTr("Clear error")
+                            icon.name: "edit-clear-symbolic"
+                            onTriggered: App.clearSettingsError()
+                        }
+                    ]
                 }
 
                 Kirigami.Separator { Layout.fillWidth: true }

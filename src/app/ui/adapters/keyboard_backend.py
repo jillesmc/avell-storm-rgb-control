@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import enum
+import json
 import os
 import sys
 import threading
+import time
 from dataclasses import replace
 from pathlib import Path
 
@@ -27,12 +29,24 @@ from avell_storm_rgb.application.screen_follow_dispatch import (
 from avell_storm_rgb.application.screen_follow_session import is_wayland_session
 from avell_storm_rgb.domain.anim_dsl import run_animation_lines
 from avell_storm_rgb.domain.keyboard_solid_colors import SOLID_COLOR_NAMES
+from avell_storm_rgb.domain.keyboard_layouts import resolve_usb_default_profile
+from avell_storm_rgb.domain import per_key_grid as pkg_per_key_grid
 from avell_storm_rgb.domain.per_key_grid import (
-    KEY_LAYOUT_KEYS,
-    color_map_ui_to_device,
+    device_cell_from_linear_index,
+    device_row_to_ui_row,
+    find_all_device_cell_conflicts,
+    key_id_to_device_cell,
     key_id_to_ui_cell,
+    overrides_by_device_cell,
+    profile_calibration_matrix_cell_order,
+    profile_key_id_at_device_cell,
+    resolve_key_to_device_cell,
+    resolve_key_to_device_map,
+    set_active_profile,
     ui_row_to_device_row,
+    visual_cell_to_device,
 )
+from avell_storm_rgb.domain.physical_key_map import qt_input_to_key_id
 from avell_storm_rgb.infrastructure.usb.ite8291_usb import (
     KEYBOARD_DIRECTIONS,
     KEYBOARD_EFFECT_PARAMS,
@@ -43,6 +57,14 @@ from avell_storm_rgb.infrastructure.usb.ite8291_usb import (
 )
 
 from app.core.usb_worker import UsbWorker
+from app.core.calibration_evdev_capture import CalibrationEvdevCapture, evdev_available
+from app.ui.adapters.keyboard_mapping_store import (
+    load_device_overrides,
+    load_device_profile_id,
+    load_device_unused_cells,
+    save_device_mapping,
+    save_device_overrides,
+)
 
 
 def _debug_firmware_ui() -> bool:
@@ -52,6 +74,29 @@ def _debug_firmware_ui() -> bool:
         "yes",
         "on",
     )
+
+
+# #region agent log
+_AGENT_DEBUG_LOG = Path("/home/jilles/.cursor/.cursor/debug-d917c9.log")
+
+
+def _agent_debug_log(hypothesis_id: str, location: str, message: str, data: dict) -> None:
+    payload = {
+        "sessionId": "d917c9",
+        "hypothesisId": hypothesis_id,
+        "location": location,
+        "message": message,
+        "data": data,
+        "timestamp": int(time.time() * 1000),
+    }
+    try:
+        with _AGENT_DEBUG_LOG.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(payload, sort_keys=True) + "\n")
+    except OSError:
+        pass
+
+
+# #endregion
 
 
 class _BrightnessTarget(enum.IntEnum):
@@ -91,6 +136,14 @@ class KeyboardBackend(QObject):
     paletteSlotWritten = Signal(int, int, int, int)
     paletteBatchReady = Signal(object)
     _pendingAnimation = Signal(object)
+    _restoredKeyGrid = Signal(object)
+    calibrationChanged = Signal()
+    calibrationPendingChanged = Signal()
+    calibrationMessageChanged = Signal()
+    calibrationModeChanged = Signal()
+    calibrationInputChanged = Signal()
+    evdevKeyPressed = Signal(str, int)
+    layoutProfileChanged = Signal()
 
     #: Matches ``restore_default_palette`` in ite8291_usb (session mirror only).
     _DEFAULT_PALETTE: dict[int, tuple[int, int, int]] = {
@@ -117,8 +170,14 @@ class KeyboardBackend(QObject):
         self._off = True
         #: Stop event of the current long task (animation / follow-screen); one per task.
         self._follow_stop = threading.Event()
-        #: (ui_row, col) with ui_row 0 = top of keyboard (number row); see ``per_key_grid``.
-        self._key_colors: dict[tuple[int, int], tuple[int, int, int]] = {}
+        self._key_colors: dict[str, tuple[int, int, int]] = {}
+        self._layout_profile_id = "legacy_builtin"
+        self._layout_visual_version = 1
+        self._layout_key_gap_u = 0.0
+        self._layout_bounds_min_x = 0.0
+        self._layout_bounds_min_y = 0.0
+        self._layout_bounds_width_u = 21.0
+        self._layout_bounds_height_u = 6.0
         self._key_grid_epoch = 0
         self._last_effect_snapshot: list[int] | None = None
         self._palette_mirror: dict[int, tuple[int, int, int]] = {}
@@ -128,6 +187,21 @@ class KeyboardBackend(QObject):
         #: Last look applied or restored; re-applied when the light is switched on.
         self._saved_look: KeyboardLook | None = None
         self._pending_brightness: int | None = None
+        self._calibration_overrides: dict[str, tuple[int, int]] = {}
+        self._calibration_pending: tuple[int, int] | None = None
+        self._calibration_preview_cell: tuple[int, int] | None = None
+        self._calibration_undo: list[tuple[str, tuple[int, int] | None]] = []
+        self._calibration_mode = "manual"
+        self._calibration_auto_running = False
+        self._calibration_auto_paused = False
+        self._calibration_auto_index = 0
+        self._calibration_auto_cells: list[tuple[int, int]] = []
+        self._calibration_unused_cells: set[tuple[int, int]] = set()
+        self._calibration_selected_cell: tuple[int, int] | None = None
+        self._calibration_message = ""
+        self._calibration_evdev_active = False
+        self._evdev_unavailable_reason = ""
+        self._device_mapping_key = "keyboard:unknown"
         self._brightness_timer = QTimer(self)
         self._brightness_timer.setSingleShot(True)
         self._brightness_timer.setInterval(200)
@@ -140,6 +214,79 @@ class KeyboardBackend(QObject):
         self.paletteSlotWritten.connect(self._apply_palette_slot_write, queued)
         self.paletteBatchReady.connect(self._on_palette_batch_ready, queued)
         self._pendingAnimation.connect(self._on_pending_animation, queued)
+        self._restoredKeyGrid.connect(self._on_restored_key_grid, queued)
+        self._evdev_capture: CalibrationEvdevCapture | None = None
+        if evdev_available():
+            self._evdev_capture = CalibrationEvdevCapture(self._emit_evdev_key_pressed)
+            self.evdevKeyPressed.connect(
+                self._on_evdev_calibration_key, Qt.ConnectionType.QueuedConnection
+            )
+        self.calibrationPendingChanged.connect(self._sync_calibration_input_capture)
+
+    @Property(bool, notify=calibrationInputChanged)
+    def calibrationEvdevActive(self) -> bool:
+        return self._calibration_evdev_active
+
+    @Property(bool, notify=calibrationInputChanged)
+    def calibrationEvdevExclusive(self) -> bool:
+        capture = self._evdev_capture
+        return bool(capture and capture.active and capture.exclusive)
+
+    def _emit_evdev_key_pressed(self, key_id: str, code: int) -> None:
+        self.evdevKeyPressed.emit(key_id, code)
+
+    def _on_evdev_calibration_key(self, key_id: str, code: int) -> None:
+        # #region agent log
+        _agent_debug_log(
+            "H-S4",
+            "keyboard_backend._on_evdev_calibration_key",
+            "evdev_key",
+            {
+                "key_id": key_id,
+                "code": code,
+                "pending": self._calibration_pending is not None,
+                "auto_paused": self._calibration_auto_paused,
+            },
+        )
+        # #endregion
+        if self._calibration_pending is None or self._calibration_auto_paused:
+            return
+        self._set_calibration_message("")
+        self.commitCalibrationKey(key_id)
+
+    def _sync_calibration_input_capture(self) -> None:
+        capture = self._evdev_capture
+        prev = self._calibration_evdev_active
+        if capture is None:
+            self._calibration_evdev_active = False
+        elif self.calibrationListening:
+            if self._evdev_unavailable_reason:
+                self._calibration_evdev_active = False
+            else:
+                self._calibration_evdev_active = capture.start()
+                if not self._calibration_evdev_active:
+                    self._evdev_unavailable_reason = capture.last_error
+            err = capture.last_error or self._evdev_unavailable_reason
+            if not self._calibration_evdev_active and err:
+                self._set_calibration_message(err)
+            elif self._calibration_evdev_active and not capture.exclusive:
+                self._set_calibration_message(
+                    "Shared input capture (no exclusive grab). ScrLk should work; "
+                    "PrtSc may still open the screenshot tool."
+                )
+        else:
+            capture.stop()
+            self._calibration_evdev_active = False
+        if prev != self._calibration_evdev_active:
+            self.calibrationInputChanged.emit()
+
+    @Slot()
+    def shutdownCalibrationInput(self) -> None:
+        if self._evdev_capture is not None:
+            self._evdev_capture.stop()
+        if self._calibration_evdev_active:
+            self._calibration_evdev_active = False
+            self.calibrationInputChanged.emit()
 
     @Property(bool, notify=connectedChanged)
     def connected(self) -> bool:
@@ -197,9 +344,162 @@ class KeyboardBackend(QObject):
     def gridCols(self) -> int:
         return NUM_COLS
 
-    @Property("QVariantList", constant=True)
+    @Property(str, notify=layoutProfileChanged)
+    def layoutProfileId(self) -> str:
+        return self._layout_profile_id
+
+    @Property("QVariantList", notify=layoutProfileChanged)
     def keyLayoutKeys(self) -> list[dict[str, int | str]]:
+        from avell_storm_rgb.domain.per_key_grid import KEY_LAYOUT_KEYS
+
         return KEY_LAYOUT_KEYS
+
+    @Property(int, notify=layoutProfileChanged)
+    def layoutVisualVersion(self) -> int:
+        return self._layout_visual_version
+
+    @Property(float, notify=layoutProfileChanged)
+    def layoutKeyGapU(self) -> float:
+        return self._layout_key_gap_u
+
+    @Property(float, notify=layoutProfileChanged)
+    def layoutBoundsMinX(self) -> float:
+        return self._layout_bounds_min_x
+
+    @Property(float, notify=layoutProfileChanged)
+    def layoutBoundsMinY(self) -> float:
+        return self._layout_bounds_min_y
+
+    @Property(float, notify=layoutProfileChanged)
+    def layoutBoundsWidthU(self) -> float:
+        return self._layout_bounds_width_u
+
+    @Property(float, notify=layoutProfileChanged)
+    def layoutBoundsHeightU(self) -> float:
+        return self._layout_bounds_height_u
+
+    @Property("QVariantList", notify=calibrationChanged)
+    def calibratedKeyIds(self) -> list[str]:
+        return sorted(self._calibration_overrides.keys())
+
+    @Property("QVariantList", notify=calibrationChanged)
+    def conflictKeyIds(self) -> list[str]:
+        conflicts = find_all_device_cell_conflicts(self._calibration_overrides)
+        seen: set[str] = set()
+        out: list[str] = []
+        for key_ids in conflicts.values():
+            for key_id in key_ids:
+                if key_id not in seen:
+                    seen.add(key_id)
+                    out.append(key_id)
+        return out
+
+    @Property(str, notify=calibrationChanged)
+    def calibrationConflictSummary(self) -> str:
+        conflicts = find_all_device_cell_conflicts(self._calibration_overrides)
+        if not conflicts:
+            return ""
+        lines: list[str] = []
+        for (dr, dc), key_ids in sorted(conflicts.items()):
+            ids = sorted(key_ids)
+            lines.append(f"LED ({dr},{dc}): {' ↔ '.join(ids)}")
+        return "\n".join(lines)
+
+    @Slot(str, result=str)
+    def calibrationConflictTooltip(self, key_id: str) -> str:
+        key_id = key_id.strip()
+        if not key_id:
+            return ""
+        conflicts = find_all_device_cell_conflicts(self._calibration_overrides)
+        for (dr, dc), key_ids in conflicts.items():
+            if key_id not in key_ids:
+                continue
+            others = sorted(k for k in key_ids if k != key_id)
+            if not others:
+                continue
+            return f"LED ({dr},{dc}) shared with: {', '.join(others)}"
+        return ""
+
+    @Property("QVariantList", notify=calibrationChanged)
+    def calibrationOverrides(self) -> list[dict[str, int | str]]:
+        rows: list[dict[str, int | str]] = []
+        for key_id, (row, col) in sorted(self._calibration_overrides.items()):
+            rows.append({"keyId": key_id, "row": row, "col": col})
+        return rows
+
+    @Property(int, notify=calibrationPendingChanged)
+    def calibrationPendingDeviceRow(self) -> int:
+        if self._calibration_pending is None:
+            return -1
+        return self._calibration_pending[0]
+
+    @Property(int, notify=calibrationPendingChanged)
+    def calibrationPendingDeviceCol(self) -> int:
+        if self._calibration_pending is None:
+            return -1
+        return self._calibration_pending[1]
+
+    @Property(str, notify=calibrationPendingChanged)
+    def calibrationPendingProfileKeyId(self) -> str:
+        if self._calibration_pending is None:
+            return ""
+        dr, dc = self._calibration_pending
+        return profile_key_id_at_device_cell(dr, dc)
+
+    @Property(bool, notify=calibrationChanged)
+    def calibrationCanUndo(self) -> bool:
+        return len(self._calibration_undo) > 0
+
+    @Property(str, notify=calibrationModeChanged)
+    def calibrationMode(self) -> str:
+        return self._calibration_mode
+
+    @Property(bool, notify=calibrationModeChanged)
+    def calibrationAutoRunning(self) -> bool:
+        return self._calibration_auto_running
+
+    @Property(bool, notify=calibrationModeChanged)
+    def calibrationAutoPaused(self) -> bool:
+        return self._calibration_auto_paused
+
+    @Property(str, notify=calibrationChanged)
+    def calibrationAutoProgress(self) -> str:
+        total = len(self._calibration_auto_cells)
+        if total <= 0:
+            total = NUM_ROWS * NUM_COLS
+        return f"{min(self._calibration_auto_index, total)} / {total}"
+
+    @Property(str, notify=calibrationMessageChanged)
+    def calibrationMessage(self) -> str:
+        return self._calibration_message
+
+    @Property(bool, notify=calibrationPendingChanged)
+    def calibrationListening(self) -> bool:
+        return (
+            self._kb is not None
+            and self._calibration_pending is not None
+            and not self._calibration_auto_paused
+        )
+
+    @Property(int, notify=calibrationPendingChanged)
+    def calibrationPendingVisualRow(self) -> int:
+        if self._calibration_pending is None:
+            return -1
+        dr, _ = self._calibration_pending
+        return device_row_to_ui_row(dr)
+
+    @Property(int, notify=calibrationPendingChanged)
+    def calibrationSelectedVisualRow(self) -> int:
+        if self._calibration_selected_cell is None:
+            return -1
+        dr, _ = self._calibration_selected_cell
+        return device_row_to_ui_row(dr)
+
+    @Property(int, notify=calibrationPendingChanged)
+    def calibrationSelectedCol(self) -> int:
+        if self._calibration_selected_cell is None:
+            return -1
+        return self._calibration_selected_cell[1]
 
     @Property(int, notify=keyGridChanged)
     def keyGridEpoch(self) -> int:
@@ -209,22 +509,29 @@ class KeyboardBackend(QObject):
         self._key_grid_epoch += 1
         self.keyGridChanged.emit()
 
-    @Slot(int, int, result=str)
-    def keyCellHex(self, row: int, col: int) -> str:
-        """``row``/``col`` are UI coordinates (row 0 = top of keyboard)."""
-        t = self._key_colors.get((row, col))
+    @Slot(str, result=str)
+    def keyHexById(self, key_id: str) -> str:
+        t = self._key_colors.get(key_id)
         if t is None:
             return "#353535"
         r, g, b = t
         return f"#{r:02x}{g:02x}{b:02x}"
 
-    @Slot(str, result=str)
-    def keyHexById(self, key_id: str) -> str:
+    @Slot(str, result=int)
+    def resolvedDeviceRowById(self, key_id: str) -> int:
         try:
-            row, col = key_id_to_ui_cell(key_id)
+            row, _ = resolve_key_to_device_cell(key_id, self._calibration_overrides)
         except ValueError:
-            return "#353535"
-        return self.keyCellHex(row, col)
+            return -1
+        return row
+
+    @Slot(str, result=int)
+    def resolvedDeviceColById(self, key_id: str) -> int:
+        try:
+            _, col = resolve_key_to_device_cell(key_id, self._calibration_overrides)
+        except ValueError:
+            return -1
+        return col
 
     def _apply_inspect(self, fw: str, brightness: int, off: bool) -> None:
         self._fw = fw
@@ -254,6 +561,347 @@ class KeyboardBackend(QObject):
                 d[ki] = (int(v[0]), int(v[1]), int(v[2]))
         self._palette_mirror = d
         self.paletteMirrorChanged.emit()
+
+    def _compute_device_mapping_key(self) -> str:
+        if self._kb is None:
+            return "keyboard:unknown"
+        dev = getattr(getattr(self._kb, "channel", None), "dev", None)
+        vendor = getattr(dev, "idVendor", 0)
+        product = getattr(dev, "idProduct", 0)
+        rev = getattr(dev, "bcdDevice", 0)
+        return f"keyboard:{vendor:04x}:{product:04x}:{rev:04x}:{self._bus}:{self._addr}"
+
+    def _usb_default_profile_id(self) -> str:
+        if self._kb is None:
+            return "legacy_builtin"
+        dev = getattr(getattr(self._kb, "channel", None), "dev", None)
+        product = int(getattr(dev, "idProduct", 0))
+        return resolve_usb_default_profile(product)
+
+    def _apply_layout_profile(self, profile_id: str) -> None:
+        profile = set_active_profile(profile_id)
+        self._layout_profile_id = profile_id
+        if profile.visual_layout is not None and profile.layout_bounds_u is not None:
+            min_x, min_y, max_x, max_y = profile.layout_bounds_u
+            self._layout_visual_version = 2
+            self._layout_key_gap_u = profile.visual_layout.key_gap
+            self._layout_bounds_min_x = min_x
+            self._layout_bounds_min_y = min_y
+            self._layout_bounds_width_u = max_x - min_x
+            self._layout_bounds_height_u = max_y - min_y
+        else:
+            self._layout_visual_version = 1
+            self._layout_key_gap_u = 0.0
+            self._layout_bounds_min_x = 0.0
+            self._layout_bounds_min_y = 0.0
+            self._layout_bounds_width_u = 21.0
+            self._layout_bounds_height_u = 6.0
+        self.layoutProfileChanged.emit()
+
+    def _load_mapping_for_current_device(self) -> None:
+        self._device_mapping_key = self._compute_device_mapping_key()
+        default_profile = self._usb_default_profile_id()
+        profile_id = load_device_profile_id(self._device_mapping_key, default_profile)
+        self._apply_layout_profile(profile_id)
+        self._calibration_overrides = load_device_overrides(self._device_mapping_key)
+        self._calibration_unused_cells = load_device_unused_cells(self._device_mapping_key)
+        self.calibrationChanged.emit()
+
+    def _save_mapping_for_current_device(self) -> None:
+        save_device_mapping(
+            self._device_mapping_key,
+            self._layout_profile_id,
+            self._calibration_overrides,
+            self._calibration_unused_cells,
+        )
+        self.calibrationChanged.emit()
+
+    def _build_device_color_map(self) -> dict[tuple[int, int], tuple[int, int, int]]:
+        out: dict[tuple[int, int], tuple[int, int, int]] = {}
+        for key_id, color in self._key_colors.items():
+            try:
+                dev_cell = resolve_key_to_device_cell(key_id, self._calibration_overrides)
+            except ValueError:
+                continue
+            out[dev_cell] = color
+        return out
+
+    def _clear_calibration_workflow(self) -> None:
+        self._calibration_pending = None
+        self._calibration_preview_cell = None
+        self._calibration_selected_cell = None
+        self._calibration_undo.clear()
+        self.calibrationPendingChanged.emit()
+
+    def _set_calibration_message(self, message: str) -> None:
+        message = message.strip()
+        if self._calibration_message != message:
+            self._calibration_message = message
+            self.calibrationMessageChanged.emit()
+
+    def _stop_auto_calibration(self, *, message: str = "") -> None:
+        self._calibration_auto_running = False
+        self._calibration_auto_paused = False
+        self._calibration_auto_index = 0
+        self._calibration_auto_cells = []
+        self._calibration_pending = None
+        self._calibration_preview_cell = None
+        self.calibrationPendingChanged.emit()
+        self.calibrationModeChanged.emit()
+        if message:
+            self._set_calibration_message(message)
+        self._restore_after_calibration_preview()
+
+    def _purge_stale_unused_for_profile_keys(self) -> None:
+        """Drop unused marks on LEDs the active profile maps to a key (stale generic marks)."""
+
+        profile_cells = set(pkg_per_key_grid.BASE_KEY_TO_DEVICE_CELL.values())
+        before = len(self._calibration_unused_cells)
+        self._calibration_unused_cells -= profile_cells
+        if len(self._calibration_unused_cells) != before:
+            self._persist_calibration_overrides()
+
+    def _cell_is_auto_done(self, device_row: int, col: int) -> bool:
+        """True when auto-cal may skip this matrix LED."""
+
+        cell = (int(device_row), int(col))
+        if cell in self._calibration_unused_cells:
+            return True
+        assignee = overrides_by_device_cell(self._calibration_overrides).get(cell)
+        if assignee is None:
+            return False
+        profile_key = profile_key_id_at_device_cell(device_row, col)
+        if profile_key and assignee != profile_key:
+            return False
+        return True
+
+    def _advance_auto_calibration(self) -> None:
+        if not self._calibration_auto_running or self._calibration_auto_paused:
+            return
+        if not self._calibration_auto_cells:
+            self._calibration_auto_cells = profile_calibration_matrix_cell_order()
+        total = len(self._calibration_auto_cells)
+        while self._calibration_auto_index < total:
+            device_row, col = self._calibration_auto_cells[self._calibration_auto_index]
+            self._calibration_auto_index += 1
+            if self._cell_is_auto_done(device_row, col):
+                continue
+            cell = (device_row, col)
+            self._calibration_pending = cell
+            self._calibration_preview_cell = cell
+            self.calibrationPendingChanged.emit()
+            self.calibrationChanged.emit()
+            self._apply_calibration_preview_async()
+            self._set_calibration_message("")
+            return
+        self._stop_auto_calibration(message="Calibration complete.")
+
+    def _persist_calibration_overrides(self) -> None:
+        save_device_mapping(
+            self._device_mapping_key,
+            self._layout_profile_id,
+            self._calibration_overrides,
+            self._calibration_unused_cells,
+        )
+        self.calibrationChanged.emit()
+
+    def _apply_calibration_preview_async(self) -> None:
+        cell = self._calibration_preview_cell
+        if cell is None:
+            return
+
+        def task() -> None:
+            if self._kb is None:
+                return
+            self._kb.set_key_colors({cell: (255, 255, 255)}, enable_user_mode_flag=True)
+
+        self._worker.submit(task, show_busy=False)
+
+    def _restore_after_calibration_preview(self) -> None:
+        def task() -> None:
+            if self._kb is None:
+                return
+            self._kb.set_key_colors(
+                self._build_device_color_map(),
+                enable_user_mode_flag=True,
+            )
+
+        self._worker.submit(task, show_busy=False)
+
+    @Slot(int, result=int)
+    def deviceRowForVisualRow(self, visual_row: int) -> int:
+        if not 0 <= visual_row < NUM_ROWS:
+            return -1
+        return ui_row_to_device_row(visual_row)
+
+    @Slot(int, int, result=bool)
+    def isCalibrationCellPending(self, visual_row: int, col: int) -> bool:
+        if self._calibration_pending is None:
+            return False
+        dr, dc = visual_cell_to_device(visual_row, col)
+        return self._calibration_pending == (dr, dc)
+
+    @Slot(int, int, result=str)
+    def calibrationCellAssignee(self, visual_row: int, col: int) -> str:
+        dr, dc = visual_cell_to_device(visual_row, col)
+        for key_id, cell in self._calibration_overrides.items():
+            if cell == (dr, dc):
+                return key_id
+        return ""
+
+    @Slot(int, int, result=bool)
+    def isCalibrationCellConflict(self, visual_row: int, col: int) -> bool:
+        dr, dc = visual_cell_to_device(visual_row, col)
+        conflicts = find_all_device_cell_conflicts(self._calibration_overrides)
+        key_ids = conflicts.get((dr, dc), [])
+        return len(key_ids) > 1
+
+    @Slot(int, int, result=bool)
+    def isCalibrationCellUnused(self, visual_row: int, col: int) -> bool:
+        dr, dc = visual_cell_to_device(visual_row, col)
+        return (dr, dc) in self._calibration_unused_cells
+
+    @Slot(int, int, result=bool)
+    def isCalibrationCellSelected(self, visual_row: int, col: int) -> bool:
+        if self._calibration_selected_cell is None:
+            return False
+        dr, dc = visual_cell_to_device(visual_row, col)
+        return self._calibration_selected_cell == (dr, dc)
+
+    @Slot(int, int, result=str)
+    def calibrationCellProfileHint(self, visual_row: int, col: int) -> str:
+        dr, dc = visual_cell_to_device(visual_row, col)
+        if self.calibrationCellAssignee(visual_row, col):
+            return ""
+        if (dr, dc) in self._calibration_unused_cells:
+            return ""
+        return profile_key_id_at_device_cell(dr, dc)
+
+    @Slot(str)
+    def setCalibrationMode(self, mode: str) -> None:
+        mode = mode.strip().lower()
+        if mode not in ("manual", "auto"):
+            return
+        if self._calibration_mode == mode:
+            return
+        self._stop_auto_calibration()
+        self._calibration_mode = mode
+        self.calibrationModeChanged.emit()
+
+    @Slot()
+    def startAutoCalibration(self) -> None:
+        if self._kb is None or self._calibration_mode != "auto":
+            return
+        self._calibration_auto_running = True
+        self._calibration_auto_paused = False
+        self._calibration_auto_index = 0
+        self._calibration_auto_cells = profile_calibration_matrix_cell_order()
+        self._purge_stale_unused_for_profile_keys()
+        self._calibration_selected_cell = None
+        self.calibrationModeChanged.emit()
+        self._advance_auto_calibration()
+
+    @Slot()
+    def stopAutoCalibration(self) -> None:
+        self._stop_auto_calibration()
+
+    @Slot()
+    def pauseAutoCalibration(self) -> None:
+        if not self._calibration_auto_running or self._calibration_auto_paused:
+            return
+        self._calibration_auto_paused = True
+        self._calibration_pending = None
+        self._calibration_preview_cell = None
+        self.calibrationPendingChanged.emit()
+        self.calibrationModeChanged.emit()
+        self._restore_after_calibration_preview()
+
+    @Slot()
+    def resumeAutoCalibration(self) -> None:
+        if not self._calibration_auto_running or not self._calibration_auto_paused:
+            return
+        self._calibration_auto_paused = False
+        self.calibrationModeChanged.emit()
+        self._advance_auto_calibration()
+
+    @Slot()
+    def markCalibrationCellUnused(self) -> None:
+        if self._calibration_pending is None:
+            return
+        dr, dc = self._calibration_pending
+        assignee = overrides_by_device_cell(self._calibration_overrides).get((dr, dc))
+        if assignee:
+            self.clearCalibrationOverride(assignee)
+        self._calibration_unused_cells.add((dr, dc))
+        self._calibration_pending = None
+        self._calibration_preview_cell = None
+        self.calibrationPendingChanged.emit()
+        self._persist_calibration_overrides()
+        self._restore_after_calibration_preview()
+        self._set_calibration_message("")
+        if self._calibration_auto_running and not self._calibration_auto_paused:
+            self._advance_auto_calibration()
+
+    @Slot(int, int)
+    def clearCalibrationCell(self, visual_row: int, col: int) -> None:
+        if not (0 <= visual_row < NUM_ROWS and 0 <= col < NUM_COLS):
+            return
+        dr, dc = visual_cell_to_device(visual_row, col)
+        assignee = overrides_by_device_cell(self._calibration_overrides).get((dr, dc))
+        if assignee:
+            self.clearCalibrationOverride(assignee)
+        self._calibration_unused_cells.discard((dr, dc))
+        if self._calibration_selected_cell == (dr, dc):
+            self._calibration_selected_cell = None
+            self.calibrationPendingChanged.emit()
+        self._persist_calibration_overrides()
+
+    @Slot(int, int, int)
+    def commitCalibrationFromPhysicalKey(
+        self, qt_key: int, modifiers: int, native_scan_code: int
+    ) -> None:
+        if self._calibration_pending is None or self._calibration_auto_paused:
+            return
+        key_id, err = qt_input_to_key_id(qt_key, modifiers, native_scan_code)
+        if err == "modifier":
+            self._set_calibration_message(
+                "Release Shift, Ctrl, Alt, or Meta before pressing the key."
+            )
+            return
+        if key_id is None:
+            self._set_calibration_message(
+                "Unrecognized key — use Mark as unused if this LED has no key."
+            )
+            return
+        self._set_calibration_message("")
+        self.commitCalibrationKey(key_id)
+
+    @Slot(str)
+    def commitCalibrationFromLayoutKey(self, key_id: str) -> None:
+        key_id = key_id.strip()
+        if not key_id or key_id == "_spacer":
+            return
+        if self._calibration_pending is None:
+            self._set_calibration_message("Select an LED cell in the grid first.")
+            return
+        if self._calibration_auto_paused:
+            return
+        self._set_calibration_message("")
+        self.commitCalibrationKey(key_id)
+
+    @Slot(int, int)
+    def selectCalibrationCellForUnbind(self, visual_row: int, col: int) -> None:
+        if self._kb is None or not (0 <= visual_row < NUM_ROWS and 0 <= col < NUM_COLS):
+            return
+        if not self.calibrationCellAssignee(visual_row, col):
+            return
+        dr, dc = visual_cell_to_device(visual_row, col)
+        self._calibration_selected_cell = (dr, dc)
+        self._calibration_pending = None
+        self._calibration_preview_cell = None
+        self.calibrationPendingChanged.emit()
+        self.calibrationChanged.emit()
+        self._restore_after_calibration_preview()
 
     def _palette_slot_rgb(self, slot: int) -> tuple[int, int, int]:
         """Session mirror if present, else firmware default palette (restore_default order)."""
@@ -331,6 +979,8 @@ class KeyboardBackend(QObject):
                 raise
             self._bus = bus
             self._addr = addr
+            self._load_mapping_for_current_device()
+            self._evdev_unavailable_reason = ""
             self.connectedChanged.emit()
             self._do_inspect_emit()
 
@@ -346,10 +996,17 @@ class KeyboardBackend(QObject):
             self._kb = None
             self._bus = -1
             self._addr = -1
+            self._device_mapping_key = "keyboard:unknown"
+            self._calibration_overrides = {}
+            self._calibration_unused_cells = set()
+            self._evdev_unavailable_reason = ""
+            self._stop_auto_calibration()
+            self._clear_calibration_workflow()
             self.connectedChanged.emit()
             self.lightChanged.emit()
             self.effectSnapshotUpdate.emit(None)
             self.paletteClearRequest.emit()
+            self.calibrationChanged.emit()
 
         self._worker.submit(task)
 
@@ -423,17 +1080,15 @@ class KeyboardBackend(QObject):
         if state.palette:
             self._palette_mirror.update(state.palette)
             self.paletteMirrorChanged.emit()
-        if isinstance(state.look, PerKeyLook):
-            self._key_colors = {
-                (ui_row_to_device_row(r), c): rgb for r, c, rgb in state.look.cells
-            }
-            self._bump_key_grid()
         self._use_brightness_context_of(state.look if state.power == "on" else None)
 
         def task() -> None:
             if self._kb is None:
                 return
             plan = restore_keyboard(self._kb, state)
+            if isinstance(state.look, PerKeyLook):
+                # Overrides for this device are loaded by the connect task, so map here.
+                self._restoredKeyGrid.emit(self._key_colors_from_cells(state.look.cells))
             for warning in plan.warnings:
                 self.restoreWarning.emit(
                     f"Keyboard: saved {warning}. Light state restored; look not applied."
@@ -713,8 +1368,20 @@ class KeyboardBackend(QObject):
     # --- per-key grid ------------------------------------------------------------
 
     def _grid_look(self) -> PerKeyLook:
-        device = color_map_ui_to_device(dict(self._key_colors))
+        device = self._build_device_color_map()
         return PerKeyLook(cells=tuple(sorted((r, c, rgb) for (r, c), rgb in device.items())))
+
+    def _key_colors_from_cells(self, cells) -> dict[str, tuple[int, int, int]]:
+        """Saved device cells → key ids, using this device's calibration overrides (USB thread)."""
+        by_cell: dict[tuple[int, int], str] = {}
+        for key_id, cell in resolve_key_to_device_map(self._calibration_overrides).items():
+            by_cell.setdefault(cell, key_id)
+        return {by_cell[(r, c)]: rgb for r, c, rgb in cells if (r, c) in by_cell}
+
+    def _on_restored_key_grid(self, grid: object) -> None:
+        if isinstance(grid, dict):
+            self._key_colors = dict(grid)
+            self._bump_key_grid()
 
     def _submit_grid(self, *, enable_user_mode: bool = True) -> None:
         look = self._grid_look()
@@ -737,11 +1404,13 @@ class KeyboardBackend(QObject):
         self._key_colors.clear()
         self._bump_key_grid()
 
-    @Slot(int, int, int, int, int, bool)
-    def setKeyCell(self, row: int, col: int, r: int, g: int, b: int, apply_now: bool) -> None:
-        if not (0 <= row < NUM_ROWS and 0 <= col < NUM_COLS):
+    @Slot(str, int, int, int, bool)
+    def setKeyById(self, key_id: str, r: int, g: int, b: int, apply_now: bool) -> None:
+        try:
+            key_id_to_ui_cell(key_id)
+        except ValueError:
             return
-        self._key_colors[(row, col)] = (
+        self._key_colors[key_id] = (
             max(0, min(255, r)),
             max(0, min(255, g)),
             max(0, min(255, b)),
@@ -749,14 +1418,6 @@ class KeyboardBackend(QObject):
         self._bump_key_grid()
         if apply_now:
             self._submit_grid()
-
-    @Slot(str, int, int, int, bool)
-    def setKeyById(self, key_id: str, r: int, g: int, b: int, apply_now: bool) -> None:
-        try:
-            row, col = key_id_to_ui_cell(key_id)
-        except ValueError:
-            return
-        self.setKeyCell(row, col, r, g, b, apply_now)
 
     @Slot("QVariantList", int, int, int, bool)
     def setKeysByIdColor(
@@ -774,10 +1435,10 @@ class KeyboardBackend(QObject):
         for raw_key_id in key_ids:
             key_id = str(raw_key_id)
             try:
-                row, col = key_id_to_ui_cell(key_id)
+                key_id_to_ui_cell(key_id)
             except ValueError:
                 continue
-            self._key_colors[(row, col)] = (rv, gv, bv)
+            self._key_colors[key_id] = (rv, gv, bv)
             changed = True
         if not changed:
             return
@@ -788,3 +1449,132 @@ class KeyboardBackend(QObject):
     @Slot(bool)
     def applyKeyGrid(self, enable_user_mode: bool) -> None:
         self._submit_grid(enable_user_mode=enable_user_mode)
+
+    @Slot(str, int, int)
+    def setCalibrationOverride(self, key_id: str, device_row: int, col: int) -> None:
+        """Persist override using firmware ``device_row`` (not visual/UI row)."""
+
+        if not (0 <= device_row < NUM_ROWS and 0 <= col < NUM_COLS):
+            return
+        try:
+            key_id_to_ui_cell(key_id)
+        except ValueError:
+            return
+        cell = (int(device_row), int(col))
+        for other_id in list(self._calibration_overrides):
+            if other_id != key_id and self._calibration_overrides[other_id] == cell:
+                del self._calibration_overrides[other_id]
+        self._calibration_overrides[str(key_id)] = cell
+        self._persist_calibration_overrides()
+
+    @Slot(str)
+    def clearCalibrationOverride(self, key_id: str) -> None:
+        if key_id in self._calibration_overrides:
+            del self._calibration_overrides[key_id]
+            self._persist_calibration_overrides()
+
+    @Slot()
+    def resetCalibrationProfile(self) -> None:
+        self._calibration_overrides = {}
+        self._calibration_unused_cells = set()
+        self._stop_auto_calibration()
+        self._clear_calibration_workflow()
+        self._persist_calibration_overrides()
+        self._restore_after_calibration_preview()
+        self._set_calibration_message("")
+
+    @Slot(int, int)
+    def selectCalibrationCell(self, visual_row: int, col: int) -> None:
+        if self._kb is None or not (0 <= visual_row < NUM_ROWS and 0 <= col < NUM_COLS):
+            return
+        if self._calibration_auto_running:
+            return
+        dr, dc = visual_cell_to_device(visual_row, col)
+        self._calibration_selected_cell = None
+        self._calibration_unused_cells.discard((dr, dc))
+        self._calibration_pending = (dr, dc)
+        self._calibration_preview_cell = (dr, dc)
+        self.calibrationPendingChanged.emit()
+        self._set_calibration_message("")
+        self._apply_calibration_preview_async()
+
+    @Slot(str)
+    def commitCalibrationKey(self, key_id: str) -> None:
+        key_id = key_id.strip()
+        if self._calibration_pending is None:
+            # #region agent log
+            _agent_debug_log(
+                "H-S4",
+                "keyboard_backend.commitCalibrationKey",
+                "rejected_no_pending",
+                {"key_id": key_id},
+            )
+            # #endregion
+            return
+        try:
+            key_id_to_ui_cell(key_id)
+        except ValueError as exc:
+            # #region agent log
+            _agent_debug_log(
+                "H-S4",
+                "keyboard_backend.commitCalibrationKey",
+                "rejected_unknown_key",
+                {"key_id": key_id, "error": str(exc)},
+            )
+            # #endregion
+            return
+        dr, dc = self._calibration_pending
+        prev = self._calibration_overrides.get(key_id)
+        self._calibration_undo.append((key_id, prev))
+        self._calibration_unused_cells.discard((dr, dc))
+        self.setCalibrationOverride(key_id, dr, dc)
+        self._calibration_pending = None
+        self._calibration_preview_cell = None
+        self.calibrationPendingChanged.emit()
+        self._restore_after_calibration_preview()
+        # #region agent log
+        _agent_debug_log(
+            "H-S4",
+            "keyboard_backend.commitCalibrationKey",
+            "committed",
+            {"key_id": key_id, "device_row": dr, "device_col": dc},
+        )
+        # #endregion
+        if self._calibration_auto_running and not self._calibration_auto_paused:
+            self._advance_auto_calibration()
+
+    @Slot()
+    def undoLastCalibration(self) -> None:
+        if not self._calibration_undo:
+            return
+        key_id, prev = self._calibration_undo.pop()
+        if prev is None:
+            self.clearCalibrationOverride(key_id)
+        else:
+            dr, dc = prev
+            self.setCalibrationOverride(key_id, dr, dc)
+        self.calibrationChanged.emit()
+
+    @Slot(str)
+    def setLayoutProfileId(self, profile_id: str) -> None:
+        profile_id = profile_id.strip()
+        if not profile_id:
+            return
+        try:
+            self._apply_layout_profile(profile_id)
+        except FileNotFoundError:
+            return
+        self._calibration_overrides = {}
+        self._calibration_unused_cells = set()
+        self._stop_auto_calibration()
+        self._clear_calibration_workflow()
+        self._key_colors.clear()
+        self._bump_key_grid()
+        self._persist_calibration_overrides()
+        self._restore_after_calibration_preview()
+
+    @Slot(result="QStringList")
+    def listLayoutProfileIds(self) -> list[str]:
+        from avell_storm_rgb.domain.keyboard_layouts import list_profile_ids
+
+        return list_profile_ids()

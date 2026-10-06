@@ -142,7 +142,7 @@ The `color` field is an **index** (`KEYBOARD_PALETTE_SLOT_COLORS` in `ite8291_us
 
 ### Keyboard (`KeyboardPage.qml` + `main.qml`)
 
-The sub-navigation (`keyboardSubNavIndex` 0…6) drives the inner `StackLayout`. It is grouped under **Firmware**, **User-defined** and **Extra** headers (title + trailing line).
+The sub-navigation (`keyboardSubNavIndex` 0…7) drives the inner `StackLayout`. It is grouped under **Firmware**, **User-defined** and **Extra** headers (title + trailing line).
 
 | # | Tab | "Apply" button? | Main backend call |
 |---|-----|-----------------|-------------------|
@@ -152,13 +152,17 @@ The sub-navigation (`keyboardSubNavIndex` 0…6) drives the inner `StackLayout`.
 | 3 | Per-key grid | Yes | `applyKeyGrid(true)` |
 | 4 | Animation file | No | `playAnimationFile` / `stopFollowOrAnimation` |
 | 5 | Follow screen | No | `startFollowScreen` / `stopFollowOrAnimation` |
-| 6 | Tools | No | `demoTestPattern`, `freezeAnimation` (immediate) |
+| 6 | Calibration | No | Adjusts `keyId → (device_row, col)` per device (saved per hardware) |
+| 7 | Tools | No | `demoTestPattern`, `freezeAnimation` (immediate) |
 
-- **Device block (brightness):** hidden on tabs **1** and **6**. Shown as **0–100 %**, converted to 0–50; debounced through `requestBrightnessFromUi`.
+- **Device block (brightness):** hidden on tabs **1** (palette) and **7** (Tools). Shown as **0–100 %**, converted to 0–50; debounced through `requestBrightnessFromUi`.
 - **Effect tab:** opening the tab or resizing the window **never** re-sends. Only a user change does.
 - **Firmware colour combo:** shows slot 1–7, `#RRGGBB` and a swatch. It uses the session mirror; without a mirror entry, `paletteSlotR/G/B` returns the **firmware default palette**.
-- **Per-key:** a real keyboard layout (labels, variable widths). Click = one key; drag = batch. Each key has a `keyId`; `per_key_grid.py` maps `keyId → (row, col)`.
-- **Row mapping:** device row 0 is the **bottom**. Per-key from the GUI goes through `color_map_ui_to_device`. **Animation DSL and follow-screen keep device coordinates** for compatibility.
+- **Per-key:** a real keyboard layout (labels, variable widths). Click = one key; drag = batch. Session colours are kept **per `keyId`**, not per visual cell.
+- **Layout profiles:** JSON profiles in `src/avell_storm_rgb/domain/keyboard_layouts/profiles/` separate visual geometry, identity (`keyId`) and the real LED `deviceCell`. Built in: `legacy_builtin`, `abnt2_laptop_21` (USB default for this repo's ITE 8291 PIDs), `ansi_104_21`. Changing profile clears overrides and session colours.
+- **Calibration:** per-device overrides `keyId → (device_row, col)` in `keyboard_mapping_overrides.json` (schema v2: `profileId` + `overrides`); `resolve_key_to_device_cell` applies them over the profile. Conflicts (two keys on one cell) show in red.
+- **Row mapping:** device row 0 is the **bottom**. **Animation DSL and follow-screen keep device coordinates** for compatibility. A saved per-key look stores device cells and is mapped back to `keyId`s with the device's overrides at restore.
+- **CLI:** `avell-storm-rgb keyboard layout list|set|probe` (`probe` walks the cells; stdout = JSON `keyId → [row, col]`).
 
 ### LED bar (`LedBarPage.qml`)
 

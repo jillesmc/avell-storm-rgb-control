@@ -7,8 +7,8 @@ import components
 
 /**
  * Keyboard device UI: primary/secondary headers, scroll body by subNavIndex, fixed footer.
- * subNavIndex is driven by the shell middle column (0–6):
- * 0 Firmware, 1 Palette, 2 Solid, 3 Per-key, 4 Animation file, 5 Follow screen, 6 Tools.
+ * subNavIndex is driven by the shell middle column (0–7):
+ * 0 Firmware, 1 Palette, 2 Solid, 3 Per-key, 4 Animation file, 5 Follow screen, 6 Calibration, 7 Tools.
  */
 Item {
     id: keyboardRoot
@@ -25,7 +25,8 @@ Item {
     readonly property int pagePerKey: 3
     readonly property int pageAnimation: 4
     readonly property int pageFollow: 5
-    readonly property int pageTools: 6
+    readonly property int pageCalibration: 6
+    readonly property int pageTools: 7
     /** Match palette slot swatch size (gridUnit * 5). */
     readonly property int solidSwatchCell: Kirigami.Units.gridUnit * 5
     readonly property bool showDeviceBrightnessBlock: keyboardRoot.subNavIndex !== keyboardRoot.pagePalette
@@ -965,6 +966,8 @@ Item {
                         keyboard: App.keyboard
                         Layout.fillWidth: true
                         selectedKeyIds: keyboardRoot.selectedPerKeyIds
+                        calibratedKeyIds: App.keyboard.calibratedKeyIds
+                        conflictKeyIds: App.keyboard.conflictKeyIds
                         onKeyActivated: function (keyId) {
                             keyboardRoot.activePerKeyId = keyId
                             keyboardRoot.selectedPerKeyIds = [keyId]
@@ -985,6 +988,12 @@ Item {
                         Label {
                             visible: keyboardRoot.activePerKeyId.length > 0
                             text: qsTr("Active key: %1").arg(keyboardRoot.activePerKeyId)
+                        }
+                        Label {
+                            visible: App.keyboard.conflictKeyIds.length > 0
+                            text: qsTr("Calibration conflicts: %1 key(s)").arg(App.keyboard.conflictKeyIds.length)
+                            color: "#d32f2f"
+                            font.bold: true
                         }
                         Rectangle {
                             width: Kirigami.Units.gridUnit * 2
@@ -1182,6 +1191,221 @@ Item {
                         text: qsTr("Follow screen needs: uv sync --extra screen (X11: Xlib+Pillow; Wayland: portal+pipewire-capture)")
                         wrapMode: Text.WordWrap
                         Layout.fillWidth: true
+                    }
+                }
+
+                ColumnLayout {
+                    spacing: Kirigami.Units.smallSpacing
+                    Layout.fillWidth: true
+                    width: parent.width
+                    Kirigami.Heading {
+                        level: 4
+                        text: qsTr("Calibration")
+                    }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Label {
+                            text: qsTr("Keyboard layout profile")
+                        }
+                        ComboBox {
+                            id: layoutProfileCombo
+                            Layout.fillWidth: true
+                            objectName: "keyboardLayoutProfileCombo"
+                            model: App.keyboard.listLayoutProfileIds()
+                            onActivated: function (index) {
+                                App.keyboard.setLayoutProfileId(layoutProfileCombo.currentText)
+                            }
+                            function syncFromBackend() {
+                                var ids = App.keyboard.listLayoutProfileIds()
+                                layoutProfileCombo.model = ids
+                                var current = App.keyboard.layoutProfileId
+                                var idx = ids.indexOf(current)
+                                if (idx >= 0)
+                                    layoutProfileCombo.currentIndex = idx
+                            }
+                            Component.onCompleted: layoutProfileCombo.syncFromBackend()
+                            Connections {
+                                target: App.keyboard
+                                function onLayoutProfileChanged() {
+                                    layoutProfileCombo.syncFromBackend()
+                                }
+                            }
+                        }
+                    }
+                    Label {
+                        wrapMode: Text.WordWrap
+                        Layout.fillWidth: true
+                        text: qsTr("Active profile: %1. Changing profile clears per-key colors and calibration overrides for this device.").arg(App.keyboard.layoutProfileId)
+                        font.italic: true
+                    }
+                    Label {
+                        wrapMode: Text.WordWrap
+                        Layout.fillWidth: true
+                        text: qsTr("Click a grid cell to light one LED, then press the matching physical key (app window must stay focused).")
+                        font.italic: true
+                        opacity: App.keyboard.connected ? 1.0 : 0.6
+                    }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Label { text: qsTr("Mode") }
+                        ButtonGroup { id: calibrationModeGroup }
+                        RadioButton {
+                            text: qsTr("Manual")
+                            checked: App.keyboard.calibrationMode === "manual"
+                            enabled: App.keyboard.connected
+                            ButtonGroup.group: calibrationModeGroup
+                            onClicked: App.keyboard.setCalibrationMode("manual")
+                        }
+                        RadioButton {
+                            text: qsTr("Automatic")
+                            checked: App.keyboard.calibrationMode === "auto"
+                            enabled: App.keyboard.connected
+                            ButtonGroup.group: calibrationModeGroup
+                            onClicked: App.keyboard.setCalibrationMode("auto")
+                        }
+                        Item { Layout.fillWidth: true }
+                        Button {
+                            text: qsTr("Start auto")
+                            visible: App.keyboard.calibrationMode === "auto"
+                            enabled: App.keyboard.connected
+                                    && !App.keyboard.calibrationAutoRunning
+                            onClicked: App.keyboard.startAutoCalibration()
+                        }
+                        Button {
+                            text: qsTr("Stop auto")
+                            visible: App.keyboard.calibrationMode === "auto"
+                                    && App.keyboard.calibrationAutoRunning
+                            onClicked: App.keyboard.stopAutoCalibration()
+                        }
+                    }
+                    CalibrationDeviceGrid {
+                        id: calibrationGrid
+                        keyboard: App.keyboard
+                        Layout.fillWidth: true
+                        onCellClicked: function (visualRow, col, hasOverride) {
+                            if (hasOverride)
+                                App.keyboard.selectCalibrationCellForUnbind(visualRow, col)
+                            else
+                                App.keyboard.selectCalibrationCell(visualRow, col)
+                        }
+                    }
+                    FocusScope {
+                        id: calibrationCapture
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 1
+                        focus: keyboardRoot.subNavIndex === keyboardRoot.pageCalibration
+                               && App.keyboard.calibrationListening
+                        Keys.onPressed: function (event) {
+                            event.accepted = true
+                            if (!App.keyboard.calibrationEvdevActive) {
+                                App.keyboard.commitCalibrationFromPhysicalKey(
+                                    event.key, event.modifiers, event.nativeScanCode)
+                            }
+                        }
+                    }
+                    Label {
+                        id: calibrationStatusLabel
+                        wrapMode: Text.WordWrap
+                        Layout.fillWidth: true
+                        color: {
+                            if (!App.keyboard.connected)
+                                return Kirigami.Theme.disabledTextColor
+                            if (App.keyboard.calibrationMessage.length > 0)
+                                return "#d32f2f"
+                            return Kirigami.Theme.textColor
+                        }
+                        text: {
+                            if (!App.keyboard.connected)
+                                return qsTr("Connect the keyboard to calibrate.")
+                            if (App.keyboard.calibrationMessage.length > 0)
+                                return App.keyboard.calibrationMessage
+                            if (App.keyboard.calibrationEvdevActive
+                                && App.keyboard.calibrationPendingDeviceRow >= 0) {
+                                if (App.keyboard.calibrationEvdevExclusive)
+                                    return qsTr("Exclusive capture on laptop keyboard — press the built-in key or click it on the layout below.")
+                                return qsTr("Shared capture on laptop keyboard — press the key or click it on the layout below.")
+                            }
+                            if (App.keyboard.calibrationAutoRunning) {
+                                if (App.keyboard.calibrationAutoPaused)
+                                    return qsTr("Auto calibration paused — return to this tab to continue (%1).")
+                                        .arg(App.keyboard.calibrationAutoProgress)
+                                if (App.keyboard.calibrationPendingDeviceRow >= 0) {
+                                    var keyId = App.keyboard.calibrationPendingProfileKeyId
+                                    if (keyId.length > 0)
+                                        return qsTr("Auto %1 — press %2 (lit LED), click it on the layout, or mark unused.")
+                                            .arg(App.keyboard.calibrationAutoProgress).arg(keyId)
+                                    return qsTr("Auto %1 — press the lit key, click it on the layout, or mark unused.")
+                                        .arg(App.keyboard.calibrationAutoProgress)
+                                }
+                                return qsTr("Auto calibration complete.")
+                            }
+                            if (App.keyboard.calibrationPendingDeviceRow >= 0)
+                                return qsTr("LED selected: device row %1, col %2 — press the matching key or click it on the layout below.")
+                                    .arg(App.keyboard.calibrationPendingDeviceRow)
+                                    .arg(App.keyboard.calibrationPendingDeviceCol)
+                            if (App.keyboard.calibrationSelectedVisualRow >= 0)
+                                return qsTr("Cell selected for clearing — use Clear cell mapping.")
+                            return qsTr("Select a cell in the grid to begin.")
+                        }
+                    }
+                    Label {
+                        visible: App.keyboard.calibrationConflictSummary.length > 0
+                        wrapMode: Text.WordWrap
+                        Layout.fillWidth: true
+                        text: qsTr("Shared LED in profile or calibration (red keys) — clearing overrides does not remove profile defaults:\n%1")
+                            .arg(App.keyboard.calibrationConflictSummary)
+                        color: "#d32f2f"
+                        font.pixelSize: Kirigami.Theme.smallFont.pixelSize
+                    }
+                    KeyboardLayoutView {
+                        keyboard: App.keyboard
+                        Layout.fillWidth: true
+                        readOnly: true
+                        layoutInteractive: App.keyboard.calibrationListening
+                        showCalibratedBadge: true
+                        calibratedKeyIds: App.keyboard.calibratedKeyIds
+                        conflictKeyIds: App.keyboard.conflictKeyIds
+                        onKeyActivated: function (keyId) {
+                            App.keyboard.commitCalibrationFromLayoutKey(keyId)
+                        }
+                    }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Button {
+                            text: qsTr("Mark as unused")
+                            enabled: App.keyboard.connected
+                                    && App.keyboard.calibrationPendingDeviceRow >= 0
+                            onClicked: App.keyboard.markCalibrationCellUnused()
+                        }
+                        Button {
+                            text: qsTr("Clear cell mapping")
+                            enabled: App.keyboard.connected
+                                    && App.keyboard.calibrationSelectedVisualRow >= 0
+                            onClicked: App.keyboard.clearCalibrationCell(
+                                App.keyboard.calibrationSelectedVisualRow,
+                                App.keyboard.calibrationSelectedCol)
+                        }
+                        Button {
+                            text: qsTr("Undo last match")
+                            enabled: App.keyboard.calibrationCanUndo
+                            onClicked: App.keyboard.undoLastCalibration()
+                        }
+                        Button {
+                            text: qsTr("Clear all mappings")
+                            enabled: App.keyboard.connected
+                                    && (App.keyboard.calibratedKeyIds.length > 0
+                                        || App.keyboard.calibrationCanUndo)
+                            onClicked: App.keyboard.resetCalibrationProfile()
+                        }
+                    }
+                    Connections {
+                        target: keyboardRoot
+                        function onSubNavIndexChanged() {
+                            if (keyboardRoot.subNavIndex === keyboardRoot.pageCalibration)
+                                App.keyboard.resumeAutoCalibration()
+                            else
+                                App.keyboard.pauseAutoCalibration()
+                        }
                     }
                 }
 

@@ -1,0 +1,64 @@
+{
+  "profileId": "test_enter_parts",
+  "keys": [
+    [
+      {
+        "keyId": "only",
+        "label": "O",
+        "secondaryLabel": "",
+        "visual": { "row": 0, "x": 0, "w": 21, "h": 1 },
+        "deviceCell": { "row": 5, "col": 10 }
+      }
+    ],
+    [
+      {
+        "keyId": "_spacer",
+        "label": "",
+        "secondaryLabel": "",
+        "visual": { "row": 1, "x": 0, "w": 21, "h": 1 }
+      }
+    ],
+    [
+      {
+        "keyId": "_spacer",
+        "label": "",
+        "secondaryLabel": "",
+        "visual": { "row": 2, "x": 0, "w": 21, "h": 1 }
+      }
+    ],
+    [
+      {
+        "keyId": "enter",
+        "label": "Enter",
+        "secondaryLabel": "",
+        "visualParts": [
+          { "row": 3, "x": 0, "w": 1, "h": 1 },
+          { "row": 4, "x": 0, "w": 2, "h": 1 }
+        ],
+        "deviceCell": { "row": 2, "col": 13 }
+      },
+      {
+        "keyId": "_spacer",
+        "label": "",
+        "secondaryLabel": "",
+        "visual": { "row": 3, "x": 1, "w": 20, "h": 1 }
+      }
+    ],
+    [
+      {
+        "keyId": "_spacer",
+        "label": "",
+        "secondaryLabel": "",
+        "visual": { "row": 4, "x": 2, "w": 19, "h": 1 }
+      }
+    ],
+    [
+      {
+        "keyId": "_spacer",
+        "label": "",
+        "secondaryLabel": "",
+        "visual": { "row": 5, "x": 0, "w": 21, "h": 1 }
+      }
+    ]
+  ]
+}

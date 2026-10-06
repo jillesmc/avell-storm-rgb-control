@@ -17,6 +17,7 @@ from app.ui.adapters.keyboard_backend import KeyboardBackend
 from avell_storm_rgb.application.device_state import (
     AnimationLook,
     FirmwareEffectLook,
+    KeyboardState,
     PerKeyLook,
     SolidLook,
 )
@@ -250,3 +251,19 @@ def test_ut067_rapid_toggles_apply_in_order(worker, monkeypatch) -> None:
     assert fake.names() == ["turn_off", "set_effect", "turn_off"]
     assert kb.lightOn is False
     assert persisted[-1] == {"power": "off"}
+
+
+def test_restored_per_key_look_maps_cells_back_to_key_ids(worker, monkeypatch) -> None:
+    """Saved device cells → keyId colours (profile + calibration aware) after restore."""
+    fake = FakeKeyboard()
+    kb, persisted = _connected(worker, monkeypatch, fake)
+    kb.setKeyById("esc", 255, 0, 0, False)
+    kb.applyKeyGrid(True)
+    drain(worker)
+    look = _looks(persisted)[-1]
+
+    other, _ = _connected(worker, monkeypatch, FakeKeyboard())
+    assert other.keyHexById("esc") != "#ff0000"
+    other.restore(KeyboardState("048d:600b", look=look))
+    drain(worker)
+    assert other.keyHexById("esc") == "#ff0000"

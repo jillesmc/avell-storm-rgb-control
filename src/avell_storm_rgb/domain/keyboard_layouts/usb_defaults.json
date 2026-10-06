@@ -1,0 +1,9 @@
+{
+  "default": "legacy_builtin",
+  "by_product_id": {
+    "6004": "abnt2_laptop_21",
+    "6006": "abnt2_laptop_21",
+    "600B": "abnt2_laptop_21",
+    "CE00": "abnt2_laptop_21"
+  }
+}

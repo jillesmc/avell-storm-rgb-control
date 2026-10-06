@@ -142,7 +142,7 @@ O campo `color` é um **índice** (`KEYBOARD_PALETTE_SLOT_COLORS` em `ite8291_us
 
 ### Teclado (`KeyboardPage.qml` + `main.qml`)
 
-A sub-navegação (`keyboardSubNavIndex` 0…6) controla o `StackLayout` interno. Ela é agrupada sob os cabeçalhos **Firmware**, **User-defined** e **Extra** (título + traço horizontal).
+A sub-navegação (`keyboardSubNavIndex` 0…7) controla o `StackLayout` interno. Ela é agrupada sob os cabeçalhos **Firmware**, **User-defined** e **Extra** (título + traço horizontal).
 
 | # | Aba | Botão "Apply"? | Chamada principal no backend |
 |---|-----|----------------|------------------------------|
@@ -152,13 +152,17 @@ A sub-navegação (`keyboardSubNavIndex` 0…6) controla o `StackLayout` interno
 | 3 | Per-key grid | Sim | `applyKeyGrid(true)` |
 | 4 | Animation file | Não | `playAnimationFile` / `stopFollowOrAnimation` |
 | 5 | Follow screen | Não | `startFollowScreen` / `stopFollowOrAnimation` |
-| 6 | Tools | Não | `demoTestPattern`, `freezeAnimation` (imediatos) |
+| 6 | Calibration | Não | Ajusta `keyId → (device_row, col)` por dispositivo (salvo por hardware) |
+| 7 | Tools | Não | `demoTestPattern`, `freezeAnimation` (imediatos) |
 
-- **Bloco Device (brilho):** escondido nas abas **1** e **6**. Mostrado como **0–100 %** e convertido para 0–50; com debounce via `requestBrightnessFromUi`.
+- **Bloco Device (brilho):** escondido nas abas **1** (paleta) e **7** (Tools). Mostrado como **0–100 %** e convertido para 0–50; com debounce via `requestBrightnessFromUi`.
 - **Aba Effect:** abrir a aba ou redimensionar a janela **nunca** reenvia. Só uma mudança do usuário reenvia.
 - **Combo de cor do firmware:** mostra slot 1–7, `#RRGGBB` e uma amostra. Usa o espelho de sessão; sem entrada no espelho, `paletteSlotR/G/B` devolve a **paleta padrão do firmware**.
-- **Por tecla:** um layout de teclado real (rótulos, larguras variáveis). Clique = uma tecla; arrastar = lote. Cada tecla tem um `keyId`; `per_key_grid.py` mapeia `keyId → (row, col)`.
-- **Mapeamento de linhas:** a linha 0 do dispositivo é a **base**. O per-key da GUI passa por `color_map_ui_to_device`. **DSL de animação e follow-screen mantêm coordenadas do dispositivo**, por compatibilidade.
+- **Por tecla:** um layout de teclado real (rótulos, larguras variáveis). Clique = uma tecla; arrastar = lote. As cores da sessão ficam **por `keyId`**, não por célula visual.
+- **Perfis de layout:** perfis JSON em `src/avell_storm_rgb/domain/keyboard_layouts/profiles/` separam geometria visual, identidade (`keyId`) e o `deviceCell` real do LED. Embutidos: `legacy_builtin`, `abnt2_laptop_21` (padrão USB para os PIDs ITE 8291 deste repo), `ansi_104_21`. Trocar de perfil limpa overrides e cores da sessão.
+- **Calibração:** overrides por dispositivo `keyId → (device_row, col)` em `keyboard_mapping_overrides.json` (schema v2: `profileId` + `overrides`); `resolve_key_to_device_cell` aplica por cima do perfil. Conflitos (duas teclas na mesma célula) aparecem em vermelho.
+- **Mapeamento de linhas:** a linha 0 do dispositivo é a **base**. **DSL de animação e follow-screen mantêm coordenadas do dispositivo**, por compatibilidade. Um visual por tecla salvo guarda células do dispositivo e volta a ser mapeado para `keyId`s com os overrides do dispositivo no restore.
+- **CLI:** `avell-storm-rgb keyboard layout list|set|probe` (`probe` percorre as células; stdout = JSON `keyId → [row, col]`).
 
 ### Barra de LED (`LedBarPage.qml`)
 

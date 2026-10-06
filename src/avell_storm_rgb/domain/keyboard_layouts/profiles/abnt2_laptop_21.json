@@ -1,0 +1,1577 @@
+{
+  "profileId": "abnt2_laptop_21",
+  "description": "ABNT2 Avell Storm — visual v2 fractional layout",
+  "visualLayout": {
+    "version": 2,
+    "keyGap": 0.15,
+    "wideGap": 1.0,
+    "rowCount": 7
+  },
+  "keys": [
+    [
+      {
+        "keyId": "esc",
+        "label": "Esc",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 5,
+          "col": 0
+        },
+        "visualV2": {
+          "x": 0.0,
+          "y": 0.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "f1",
+        "label": "F1",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 5,
+          "col": 1
+        },
+        "visualV2": {
+          "x": 1.15,
+          "y": 0.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "f2",
+        "label": "F2",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 5,
+          "col": 2
+        },
+        "visualV2": {
+          "x": 2.3,
+          "y": 0.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "f3",
+        "label": "F3",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 5,
+          "col": 3
+        },
+        "visualV2": {
+          "x": 3.45,
+          "y": 0.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "f4",
+        "label": "F4",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 5,
+          "col": 4
+        },
+        "visualV2": {
+          "x": 4.6,
+          "y": 0.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "f5",
+        "label": "F5",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 5,
+          "col": 5
+        },
+        "visualV2": {
+          "x": 5.75,
+          "y": 0.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "f6",
+        "label": "F6",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 5,
+          "col": 6
+        },
+        "visualV2": {
+          "x": 6.9,
+          "y": 0.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "f7",
+        "label": "F7",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 5,
+          "col": 7
+        },
+        "visualV2": {
+          "x": 8.05,
+          "y": 0.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "f8",
+        "label": "F8",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 5,
+          "col": 8
+        },
+        "visualV2": {
+          "x": 9.2,
+          "y": 0.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "f9",
+        "label": "F9",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 5,
+          "col": 9
+        },
+        "visualV2": {
+          "x": 10.35,
+          "y": 0.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "f10",
+        "label": "F10",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 5,
+          "col": 10
+        },
+        "visualV2": {
+          "x": 11.5,
+          "y": 0.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "f11",
+        "label": "F11",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 5,
+          "col": 11
+        },
+        "visualV2": {
+          "x": 12.65,
+          "y": 0.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "f12",
+        "label": "F12",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 5,
+          "col": 12
+        },
+        "visualV2": {
+          "x": 13.8,
+          "y": 0.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "scrlk",
+        "label": "SC",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 5,
+          "col": 14
+        },
+        "visualV2": {
+          "x": 14.95,
+          "y": 0.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "prtsc",
+        "label": "PrtSc",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 5,
+          "col": 13
+        },
+        "visualV2": {
+          "x": 16.1,
+          "y": 0.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "delete",
+        "label": "Del",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 3,
+          "col": 16
+        },
+        "visualV2": {
+          "x": 17.25,
+          "y": 0.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "home",
+        "label": "Home",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 4,
+          "col": 16
+        },
+        "visualV2": {
+          "x": 18.4,
+          "y": 0.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "page_up",
+        "label": "PgUp",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 4,
+          "col": 17
+        },
+        "visualV2": {
+          "x": 19.55,
+          "y": 0.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "page_down",
+        "label": "PgDn",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 3,
+          "col": 18
+        },
+        "visualV2": {
+          "x": 20.7,
+          "y": 0.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "end",
+        "label": "End",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 3,
+          "col": 17
+        },
+        "visualV2": {
+          "x": 21.85,
+          "y": 0.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      }
+    ],
+    [
+      {
+        "keyId": "grave",
+        "label": "'",
+        "secondaryLabel": "\"",
+        "deviceCell": {
+          "row": 4,
+          "col": 0
+        },
+        "visualV2": {
+          "x": 0.0,
+          "y": 1.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "digit_1",
+        "label": "1",
+        "secondaryLabel": "!¹",
+        "deviceCell": {
+          "row": 4,
+          "col": 1
+        },
+        "visualV2": {
+          "x": 1.15,
+          "y": 1.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "digit_2",
+        "label": "2",
+        "secondaryLabel": "@²",
+        "deviceCell": {
+          "row": 4,
+          "col": 2
+        },
+        "visualV2": {
+          "x": 2.3,
+          "y": 1.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "digit_3",
+        "label": "3",
+        "secondaryLabel": "#³",
+        "deviceCell": {
+          "row": 4,
+          "col": 3
+        },
+        "visualV2": {
+          "x": 3.45,
+          "y": 1.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "digit_4",
+        "label": "4",
+        "secondaryLabel": "$£",
+        "deviceCell": {
+          "row": 4,
+          "col": 4
+        },
+        "visualV2": {
+          "x": 4.6,
+          "y": 1.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "digit_5",
+        "label": "5",
+        "secondaryLabel": "%¢",
+        "deviceCell": {
+          "row": 4,
+          "col": 5
+        },
+        "visualV2": {
+          "x": 5.75,
+          "y": 1.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "digit_6",
+        "label": "6",
+        "secondaryLabel": "^¬",
+        "deviceCell": {
+          "row": 4,
+          "col": 6
+        },
+        "visualV2": {
+          "x": 6.9,
+          "y": 1.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "digit_7",
+        "label": "7",
+        "secondaryLabel": "&{",
+        "deviceCell": {
+          "row": 4,
+          "col": 7
+        },
+        "visualV2": {
+          "x": 8.05,
+          "y": 1.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "digit_8",
+        "label": "8",
+        "secondaryLabel": "*",
+        "deviceCell": {
+          "row": 4,
+          "col": 8
+        },
+        "visualV2": {
+          "x": 9.2,
+          "y": 1.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "digit_9",
+        "label": "9",
+        "secondaryLabel": "(",
+        "deviceCell": {
+          "row": 4,
+          "col": 9
+        },
+        "visualV2": {
+          "x": 10.35,
+          "y": 1.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "digit_0",
+        "label": "0",
+        "secondaryLabel": ")",
+        "deviceCell": {
+          "row": 4,
+          "col": 10
+        },
+        "visualV2": {
+          "x": 11.5,
+          "y": 1.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "minus",
+        "label": "-",
+        "secondaryLabel": "_",
+        "deviceCell": {
+          "row": 4,
+          "col": 11
+        },
+        "visualV2": {
+          "x": 12.65,
+          "y": 1.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "equal",
+        "label": "=",
+        "secondaryLabel": "+§",
+        "deviceCell": {
+          "row": 4,
+          "col": 12
+        },
+        "visualV2": {
+          "x": 13.8,
+          "y": 1.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "backspace",
+        "label": "Backspace",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 4,
+          "col": 14
+        },
+        "visualV2": {
+          "x": 14.95,
+          "y": 1.0,
+          "w": 3.3,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "num_lock",
+        "label": "Num",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 4,
+          "col": 18
+        },
+        "visualV2": {
+          "x": 18.4,
+          "y": 1.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "kp_div",
+        "label": "/",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 5,
+          "col": 19
+        },
+        "visualV2": {
+          "x": 19.55,
+          "y": 1.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "kp_mul",
+        "label": "*",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 5,
+          "col": 20
+        },
+        "visualV2": {
+          "x": 20.7,
+          "y": 1.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "kp_minus",
+        "label": "-",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 3,
+          "col": 20
+        },
+        "visualV2": {
+          "x": 21.85,
+          "y": 1.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      }
+    ],
+    [
+      {
+        "keyId": "tab",
+        "label": "Tab",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 3,
+          "col": 1
+        },
+        "visualV2": {
+          "x": 0.0,
+          "y": 2.0,
+          "w": 1.5,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "q",
+        "label": "Q",
+        "secondaryLabel": "/",
+        "deviceCell": {
+          "row": 3,
+          "col": 2
+        },
+        "visualV2": {
+          "x": 1.65,
+          "y": 2.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "w",
+        "label": "W",
+        "secondaryLabel": "?",
+        "deviceCell": {
+          "row": 3,
+          "col": 3
+        },
+        "visualV2": {
+          "x": 2.8,
+          "y": 2.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "e",
+        "label": "E",
+        "secondaryLabel": "°",
+        "deviceCell": {
+          "row": 3,
+          "col": 4
+        },
+        "visualV2": {
+          "x": 3.95,
+          "y": 2.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "r",
+        "label": "R",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 3,
+          "col": 5
+        },
+        "visualV2": {
+          "x": 5.1,
+          "y": 2.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "t",
+        "label": "T",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 3,
+          "col": 6
+        },
+        "visualV2": {
+          "x": 6.25,
+          "y": 2.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "y",
+        "label": "Y",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 3,
+          "col": 7
+        },
+        "visualV2": {
+          "x": 7.4,
+          "y": 2.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "u",
+        "label": "U",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 3,
+          "col": 8
+        },
+        "visualV2": {
+          "x": 8.55,
+          "y": 2.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "i",
+        "label": "I",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 3,
+          "col": 9
+        },
+        "visualV2": {
+          "x": 9.7,
+          "y": 2.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "o",
+        "label": "O",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 3,
+          "col": 10
+        },
+        "visualV2": {
+          "x": 10.85,
+          "y": 2.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "p",
+        "label": "P",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 3,
+          "col": 11
+        },
+        "visualV2": {
+          "x": 12.0,
+          "y": 2.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "bracket_left",
+        "label": "´",
+        "secondaryLabel": "`",
+        "deviceCell": {
+          "row": 3,
+          "col": 12
+        },
+        "visualV2": {
+          "x": 13.15,
+          "y": 2.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "bracket_square",
+        "label": "[",
+        "secondaryLabel": "{ª",
+        "deviceCell": {
+          "row": 3,
+          "col": 13
+        },
+        "visualV2": {
+          "x": 14.3,
+          "y": 2.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "enter",
+        "label": "Enter",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 2,
+          "col": 13
+        },
+        "visualPartsV2": [
+          {
+            "x": 15.45,
+            "y": 2.0,
+            "w": 2.8,
+            "h": 1.0
+          },
+          {
+            "x": 15.7,
+            "y": 3.0,
+            "w": 2.55,
+            "h": 1.0
+          }
+        ],
+        "visualShape": "isoEnter"
+      },
+      {
+        "keyId": "kp_7",
+        "label": "N7",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 4,
+          "col": 19
+        },
+        "visualV2": {
+          "x": 18.4,
+          "y": 2.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "kp_8",
+        "label": "N8",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 4,
+          "col": 20
+        },
+        "visualV2": {
+          "x": 19.55,
+          "y": 2.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "kp_9",
+        "label": "N9",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 3,
+          "col": 19
+        },
+        "visualV2": {
+          "x": 20.7,
+          "y": 2.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "kp_plus",
+        "label": "+",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 2,
+          "col": 19
+        },
+        "visualPartsV2": [
+          {
+            "x": 21.85,
+            "y": 2.0,
+            "w": 1.0,
+            "h": 2.0
+          }
+        ]
+      }
+    ],
+    [
+      {
+        "keyId": "caps_lock",
+        "label": "Fixa",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 2,
+          "col": 1
+        },
+        "visualV2": {
+          "x": 0.0,
+          "y": 3.0,
+          "w": 1.75,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "a",
+        "label": "A",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 2,
+          "col": 2
+        },
+        "visualV2": {
+          "x": 1.9,
+          "y": 3.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "s",
+        "label": "S",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 2,
+          "col": 3
+        },
+        "visualV2": {
+          "x": 3.05,
+          "y": 3.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "d",
+        "label": "D",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 2,
+          "col": 4
+        },
+        "visualV2": {
+          "x": 4.2,
+          "y": 3.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "f",
+        "label": "F",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 2,
+          "col": 5
+        },
+        "visualV2": {
+          "x": 5.35,
+          "y": 3.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "g",
+        "label": "G",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 2,
+          "col": 6
+        },
+        "visualV2": {
+          "x": 6.5,
+          "y": 3.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "h",
+        "label": "H",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 2,
+          "col": 7
+        },
+        "visualV2": {
+          "x": 7.65,
+          "y": 3.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "j",
+        "label": "J",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 2,
+          "col": 8
+        },
+        "visualV2": {
+          "x": 8.8,
+          "y": 3.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "k",
+        "label": "K",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 2,
+          "col": 9
+        },
+        "visualV2": {
+          "x": 9.95,
+          "y": 3.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "l",
+        "label": "L",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 2,
+          "col": 10
+        },
+        "visualV2": {
+          "x": 11.1,
+          "y": 3.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "cedilla",
+        "label": "Ç",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 2,
+          "col": 11
+        },
+        "visualV2": {
+          "x": 12.25,
+          "y": 3.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "semicolon",
+        "label": "~",
+        "secondaryLabel": "^",
+        "deviceCell": {
+          "row": 2,
+          "col": 12
+        },
+        "visualV2": {
+          "x": 13.4,
+          "y": 3.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "bracket_right",
+        "label": "]",
+        "secondaryLabel": "}º",
+        "deviceCell": {
+          "row": 3,
+          "col": 14
+        },
+        "visualV2": {
+          "x": 14.55,
+          "y": 3.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "kp_4",
+        "label": "N4",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 2,
+          "col": 16
+        },
+        "visualV2": {
+          "x": 18.4,
+          "y": 3.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "kp_5",
+        "label": "N5",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 2,
+          "col": 17
+        },
+        "visualV2": {
+          "x": 19.55,
+          "y": 3.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "kp_6",
+        "label": "N6",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 2,
+          "col": 18
+        },
+        "visualV2": {
+          "x": 20.7,
+          "y": 3.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      }
+    ],
+    [
+      {
+        "keyId": "shift_left",
+        "label": "Shift",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 1,
+          "col": 1
+        },
+        "visualV2": {
+          "x": 0.0,
+          "y": 4.0,
+          "w": 1.25,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "backslash",
+        "label": "\\",
+        "secondaryLabel": "|",
+        "deviceCell": {
+          "row": 1,
+          "col": 2
+        },
+        "visualV2": {
+          "x": 1.4,
+          "y": 4.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "z",
+        "label": "Z",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 1,
+          "col": 3
+        },
+        "visualV2": {
+          "x": 2.55,
+          "y": 4.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "x",
+        "label": "X",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 1,
+          "col": 4
+        },
+        "visualV2": {
+          "x": 3.7,
+          "y": 4.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "c",
+        "label": "C",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 1,
+          "col": 5
+        },
+        "visualV2": {
+          "x": 4.85,
+          "y": 4.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "v",
+        "label": "V",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 1,
+          "col": 6
+        },
+        "visualV2": {
+          "x": 6.0,
+          "y": 4.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "b",
+        "label": "B",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 1,
+          "col": 7
+        },
+        "visualV2": {
+          "x": 7.15,
+          "y": 4.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "n",
+        "label": "N",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 1,
+          "col": 8
+        },
+        "visualV2": {
+          "x": 8.3,
+          "y": 4.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "m",
+        "label": "M",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 1,
+          "col": 9
+        },
+        "visualV2": {
+          "x": 9.45,
+          "y": 4.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "comma",
+        "label": ",",
+        "secondaryLabel": "<",
+        "deviceCell": {
+          "row": 1,
+          "col": 10
+        },
+        "visualV2": {
+          "x": 10.6,
+          "y": 4.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "dot",
+        "label": ".",
+        "secondaryLabel": ">",
+        "deviceCell": {
+          "row": 1,
+          "col": 11
+        },
+        "visualV2": {
+          "x": 11.75,
+          "y": 4.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "slash",
+        "label": ";",
+        "secondaryLabel": ":",
+        "deviceCell": {
+          "row": 1,
+          "col": 12
+        },
+        "visualV2": {
+          "x": 12.9,
+          "y": 4.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "shift_right",
+        "label": "Shift",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 1,
+          "col": 13
+        },
+        "visualV2": {
+          "x": 14.05,
+          "y": 4.0,
+          "w": 4.2,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "kp_1",
+        "label": "N1",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 1,
+          "col": 17
+        },
+        "visualV2": {
+          "x": 18.4,
+          "y": 4.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "kp_2",
+        "label": "N2",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 1,
+          "col": 18
+        },
+        "visualV2": {
+          "x": 19.55,
+          "y": 4.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "kp_3",
+        "label": "N3",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 1,
+          "col": 19
+        },
+        "visualV2": {
+          "x": 20.7,
+          "y": 4.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "kp_enter_top",
+        "label": "NEnt",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 1,
+          "col": 20
+        },
+        "visualV2": {
+          "x": 21.85,
+          "y": 4.0,
+          "w": 1.0,
+          "h": 2.0
+        }
+      }
+    ],
+    [
+      {
+        "keyId": "ctrl_left",
+        "label": "Ctrl",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 0,
+          "col": 0
+        },
+        "visualV2": {
+          "x": 0.0,
+          "y": 5.0,
+          "w": 1.25,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "fn",
+        "label": "Fn",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 0,
+          "col": 11
+        },
+        "visualV2": {
+          "x": 1.4,
+          "y": 5.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "meta_left",
+        "label": "Win",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 0,
+          "col": 1
+        },
+        "visualV2": {
+          "x": 2.55,
+          "y": 5.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "alt_left",
+        "label": "Alt",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 0,
+          "col": 2
+        },
+        "visualV2": {
+          "x": 3.7,
+          "y": 5.0,
+          "w": 1.25,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "space",
+        "label": "Space",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 0,
+          "col": 6
+        },
+        "visualV2": {
+          "x": 5.1,
+          "y": 5.0,
+          "w": 6.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "alt_right",
+        "label": "AltGr",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 0,
+          "col": 10
+        },
+        "visualV2": {
+          "x": 11.25,
+          "y": 5.0,
+          "w": 1.25,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "menu",
+        "label": "Menu",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 0,
+          "col": 12
+        },
+        "visualV2": {
+          "x": 12.65,
+          "y": 5.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "up",
+        "label": "Up",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 1,
+          "col": 16
+        },
+        "visualV2": {
+          "x": 15.65,
+          "y": 5.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "kp_0",
+        "label": "N0",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 0,
+          "col": 18
+        },
+        "visualV2": {
+          "x": 18.4,
+          "y": 5.0,
+          "w": 2.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "kp_dot",
+        "label": ",",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 0,
+          "col": 19
+        },
+        "visualV2": {
+          "x": 20.7,
+          "y": 5.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      }
+    ],
+    [
+      {
+        "keyId": "left",
+        "label": "Left",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 0,
+          "col": 14
+        },
+        "visualV2": {
+          "x": 14.5,
+          "y": 6.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "down",
+        "label": "Down",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 0,
+          "col": 15
+        },
+        "visualV2": {
+          "x": 15.65,
+          "y": 6.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "right",
+        "label": "Right",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 0,
+          "col": 16
+        },
+        "visualV2": {
+          "x": 16.8,
+          "y": 6.0,
+          "w": 1.0,
+          "h": 1.0
+        }
+      },
+      {
+        "keyId": "app",
+        "label": "App",
+        "secondaryLabel": "",
+        "deviceCell": {
+          "row": 0,
+          "col": 20
+        },
+        "visualHidden": true
+      }
+    ]
+  ]
+}
