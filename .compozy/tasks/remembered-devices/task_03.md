@@ -1,5 +1,5 @@
 ---
-status: pending
+status: completed
 title: "Task 3: App remembers devices and restores them at startup"
 type: feature
 complexity: high
@@ -35,12 +35,12 @@ This task solves the Motivating Problem end to end. Connecting a device on **Dev
 
 ## Subtasks
 
-- [ ] 3.1 Store ownership, `persistUpdate` merge/save, save-error message (US-012.EC-2).
-- [ ] 3.2 Remember on connect, forget on disconnect, `forgetDevice`, `retryDevice`, the remembered/unavailable properties and `deviceMemoryChanged`.
-- [ ] 3.3 `restoreRememberedDevices` with ordering and unavailable reasons; missing-animation message.
-- [ ] 3.4 Migration from `ui/autoConnectOnStartup`; invalid-file quarantine.
-- [ ] 3.5 QML: startup call, sidebar switch → light, remove the Settings checkbox.
-- [ ] 3.6 Rewrite `tests/test_app_facade_autoconnect.py` into remember/restore/migration suites.
+- [x] 3.1 Store ownership, `persistUpdate` merge/save, save-error message (US-012.EC-2).
+- [x] 3.2 Remember on connect, forget on disconnect, `forgetDevice`, `retryDevice`, the remembered/unavailable properties and `deviceMemoryChanged`.
+- [x] 3.3 `restoreRememberedDevices` with ordering and unavailable reasons; missing-animation message.
+- [x] 3.4 Migration from `ui/autoConnectOnStartup`; invalid-file quarantine.
+- [x] 3.5 QML: startup call, sidebar switch → light, remove the Settings checkbox.
+- [x] 3.6 Rewrite `tests/test_app_facade_autoconnect.py` into remember/restore/migration suites.
 
 ## Implementation Details
 
@@ -71,11 +71,19 @@ This task solves the Motivating Problem end to end. Connecting a device on **Dev
 
 ## Tests
 
-- [ ] UT-030, UT-031, UT-032, UT-033, UT-034, UT-035, UT-036, UT-037, UT-038 — device memory
-- [ ] UT-090, UT-091, UT-092, UT-093 — migration
-- [ ] IT-001, IT-002, IT-003, IT-004, IT-005, IT-006, IT-007, IT-008, IT-009, IT-010, IT-011, IT-012 — facade + backends + worker + store
+- [x] UT-030, UT-031, UT-032, UT-033, UT-034, UT-035, UT-036, UT-037, UT-038 — device memory
+- [x] UT-090, UT-091, UT-092, UT-093 — migration
+- [x] IT-001, IT-002, IT-003, IT-004, IT-005, IT-006, IT-007, IT-008, IT-009, IT-010, IT-011, IT-012 — facade + backends + worker + store
 
 ## Success Criteria
 
 - `make test` is green.
 - `grep -rn "autoConnectOnStartup\|connectFirstDiscovered\|tryAutoConnect" src tests` finds nothing, except migration code that reads the legacy key name.
+
+## Completion Notes
+
+- Backends gained a `connectFailed(str)` signal (emitted before re-raising inside the connect task). The facade uses it to show the USB error as the unavailable reason (UT-038) and to remember nothing on a failed Devices connect (BR-1a). `AppState.reportError(str)` shows a message without touching the busy counter.
+- `connectDevice` also applies the saved look of that kind when one exists, so a forgotten device comes back as it was (US-003.AC-3).
+- `refreshDevices` retries remembered devices that are currently unavailable (US-004.AC-2 "or Refresh list"). An invalid state file is never auto-migrated (BR-14 + BR-15).
+- `tests/conftest.py` isolates `XDG_CONFIG_HOME` for every test, so GUI tests never touch the real `state.json`. Old `test_app_facade_autoconnect.py` replaced.
+- Evidence: `tests/test_app_facade_memory.py` + `tests/test_app_restore_integration.py` (27 passed, includes a GUI-thread check for state writes); full suite 110 passed ×3; no QML binding errors on load; grep for removed names → only `LEGACY_AUTO_CONNECT_KEY`.

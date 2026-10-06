@@ -96,7 +96,7 @@ Kirigami.ApplicationWindow {
 
     Component.onCompleted: {
         App.refreshDevices()
-        App.tryAutoConnectDiscoveredDevices()
+        App.restoreRememberedDevices()
         if (App.keyboardEffectNames.length > 0)
             selectedKeyboardEffect = App.keyboardEffectNames[0]
         if (App.ledPalettePresets.length > 0)
@@ -270,23 +270,24 @@ Kirigami.ApplicationWindow {
                                 Layout.alignment: Qt.AlignVCenter
                             }
                             Switch {
+                                objectName: model.page === 1 ? "keyboardLightSwitch" : "ledBarLightSwitch"
                                 visible: model.showSwitch
-                                checked: model.page === 1 ? App.keyboard.connected : App.ledBar.connected
+                                /** Light on/off; connecting and forgetting live on the Devices page. */
+                                checked: model.page === 1 ? App.keyboard.lightOn : App.ledBar.lightOn
+                                enabled: model.page === 1 ? App.keyboard.connected : App.ledBar.connected
                                 scale: 0.9
                                 transformOrigin: Item.Center
                                 Layout.alignment: Qt.AlignVCenter
-                                onToggled: function (on) {
-                                    if (model.page === 1) {
-                                        if (on)
-                                            App.connectFirstDiscovered("keyboard")
-                                        else
-                                            App.disconnectDeviceKind("keyboard")
-                                    } else if (model.page === 2) {
-                                        if (on)
-                                            App.connectFirstDiscovered("led_bar")
-                                        else
-                                            App.disconnectDeviceKind("led_bar")
-                                    }
+                                Accessible.name: model.page === 1 ? qsTr("Keyboard light") : qsTr("LED bar light")
+                                ToolTip.visible: hovered
+                                ToolTip.text: model.page === 1
+                                              ? qsTr("Turn the keyboard light on/off")
+                                              : qsTr("Turn the LED bar light on/off")
+                                onToggled: {
+                                    if (model.page === 1)
+                                        App.keyboard.setLightOn(checked)
+                                    else if (model.page === 2)
+                                        App.ledBar.setLightOn(checked)
                                 }
                             }
                         }

@@ -82,6 +82,7 @@ class KeyboardBackend(QObject):
 
     persistUpdate = Signal(object)
     restoreWarning = Signal(str)
+    connectFailed = Signal(str)
 
     inspectUpdate = Signal(str, int, bool)
     effectSnapshotUpdate = Signal(object)
@@ -323,7 +324,11 @@ class KeyboardBackend(QObject):
     @Slot(int, int)
     def connectAt(self, bus: int, addr: int) -> None:
         def task() -> None:
-            self._kb = open_keyboard(bus_addr=(bus, addr), debug=self._debug)
+            try:
+                self._kb = open_keyboard(bus_addr=(bus, addr), debug=self._debug)
+            except Exception as e:
+                self.connectFailed.emit(f"{type(e).__name__}: {e}")
+                raise
             self._bus = bus
             self._addr = addr
             self.connectedChanged.emit()

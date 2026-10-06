@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import logging
 import os
+from dataclasses import replace
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
-from PySide6.QtCore import QModelIndex, Property, QObject, QSettings, Signal, Slot
+from PySide6.QtCore import Property, QObject, QSettings, Qt, Signal, Slot
 from PySide6.QtWidgets import QApplication
 
 
@@ -14,6 +16,13 @@ def _package_version() -> str:
     except PackageNotFoundError:
         return "0.0.0-dev"
 
+from avell_storm_rgb.application.device_state import (
+    DeviceState,
+    DeviceStateStore,
+    KeyboardState,
+    LedBarState,
+    StateFileError,
+)
 from avell_storm_rgb.domain.keyboard_solid_colors import SOLID_COLOR_NAMES
 from avell_storm_rgb.infrastructure.usb.ite8291_usb import (
     KEYBOARD_DIRECTIONS,
@@ -30,8 +39,26 @@ from app.ui.adapters.led_bar_backend import LedBarBackend
 from app.core.usb_worker import UsbWorker
 
 
+_LOG = logging.getLogger("avell_storm_rgb.gui")
+
+#: Legacy QSettings key replaced by remembered devices (migrated once, then deleted).
+LEGACY_AUTO_CONNECT_KEY = "ui/autoConnectOnStartup"
+
+KINDS = ("keyboard", "led_bar")
+
+
 def _env_truthy(name: str) -> bool:
     return os.environ.get(name, "").strip().lower() in ("1", "true", "yes", "on")
+
+
+def _truthy(raw: object) -> bool:
+    if isinstance(raw, str):
+        return raw.strip().lower() in ("1", "true", "yes", "on")
+    return bool(raw)
+
+
+def _usb_id(row: dict) -> str:
+    return f"{int(row['vid']):04x}:{int(row['pid']):04x}"
 
 
 class AppFacade(QObject):
@@ -40,25 +67,15 @@ class AppFacade(QObject):
     animationPreviewChanged = Signal()
     deviceConnectionChanged = Signal()
     closeToTrayChanged = Signal()
-    autoConnectOnStartupChanged = Signal()
+    deviceMemoryChanged = Signal()
 
-    def __init__(self, parent: QObject | None = None) -> None:
+    def __init__(
+        self, parent: QObject | None = None, *, store: DeviceStateStore | None = None
+    ) -> None:
         super().__init__(parent)
         self._settings = QSettings()
         raw = self._settings.value("ui/closeToTray")
-        if raw is None:
-            self._close_to_tray = True
-        elif isinstance(raw, str):
-            self._close_to_tray = raw.lower() in ("1", "true", "yes", "on")
-        else:
-            self._close_to_tray = bool(raw)
-        raw_ac = self._settings.value("ui/autoConnectOnStartup")
-        if raw_ac is None:
-            self._auto_connect_on_startup = True
-        elif isinstance(raw_ac, str):
-            self._auto_connect_on_startup = raw_ac.lower() in ("1", "true", "yes", "on")
-        else:
-            self._auto_connect_on_startup = bool(raw_ac)
+        self._close_to_tray = True if raw is None else _truthy(raw)
         self._worker = UsbWorker(self)
         self._state = AppState(self._worker, self)
         self._devices = DeviceListModel(self)
@@ -69,8 +86,28 @@ class AppFacade(QObject):
         self._app_version = _package_version()
         self._device_epoch = 0
         self._debug_firmware_ui = _env_truthy("AVELL_DEBUG_FIRMWARE_UI")
-        self._keyboard.connectedChanged.connect(self._bump_device_epoch)
-        self._led.connectedChanged.connect(self._bump_device_epoch)
+
+        # Saved device state (single writer: this object, on the GUI thread).
+        self._store = store if store is not None else DeviceStateStore()
+        self._saved = DeviceState()
+        self._unavailable: dict[str, str] = {k: "" for k in KINDS}
+        self._connecting_usb_id: dict[str, str | None] = {k: None for k in KINDS}
+        self._needs_migration = False
+        self._load_saved_state()
+
+        queued = Qt.ConnectionType.QueuedConnection
+        for kind, backend in self._backends():
+            backend.connectedChanged.connect(self._bump_device_epoch, queued)
+            backend.connectedChanged.connect(
+                lambda k=kind: self._on_connected_changed(k), queued
+            )
+            backend.connectFailed.connect(
+                lambda msg, k=kind: self._on_connect_failed(k, msg), queued
+            )
+            backend.persistUpdate.connect(
+                lambda changes, k=kind: self._on_persist(k, changes), queued
+            )
+        self._keyboard.restoreWarning.connect(self._state.reportError, queued)
 
     @Property(str, constant=True)
     def applicationVersion(self) -> str:
@@ -92,18 +129,6 @@ class AppFacade(QObject):
             self._close_to_tray = v
             self._settings.setValue("ui/closeToTray", v)
             self.closeToTrayChanged.emit()
-
-    @Property(bool, notify=autoConnectOnStartupChanged)
-    def autoConnectOnStartup(self) -> bool:
-        return self._auto_connect_on_startup
-
-    @autoConnectOnStartup.setter
-    def autoConnectOnStartup(self, value: bool) -> None:
-        v = bool(value)
-        if self._auto_connect_on_startup != v:
-            self._auto_connect_on_startup = v
-            self._settings.setValue("ui/autoConnectOnStartup", v)
-            self.autoConnectOnStartupChanged.emit()
 
     @Slot()
     def quitApplication(self) -> None:
@@ -137,10 +162,25 @@ class AppFacade(QObject):
 
     @Slot(str)
     def disconnectDeviceKind(self, kind: str) -> None:
-        if kind == "keyboard":
-            self._keyboard.disconnectDevice()
-        elif kind == "led_bar":
-            self._led.disconnectDevice()
+        """Release USB and forget the device; its saved look and light state are kept (BR-9)."""
+        backend = self._backend(kind)
+        if backend is None:
+            return
+        backend.disconnectDevice()
+        self._set_remembered(kind, False)
+
+    @Slot(str)
+    def forgetDevice(self, kind: str) -> None:
+        """Forget a remembered device that is unavailable (no USB to release)."""
+        if self._backend(kind) is not None:
+            self._set_remembered(kind, False)
+
+    @Slot(str)
+    def retryDevice(self, kind: str) -> None:
+        """Rescan USB and reconnect one remembered, unavailable device."""
+        self._devices.refresh()
+        self._restore_kind(kind)
+        self.deviceMemoryChanged.emit()
 
     @Property(QObject, constant=True)
     def state(self) -> AppState:
@@ -240,61 +280,208 @@ class AppFacade(QObject):
 
     @Slot()
     def refreshDevices(self) -> None:
+        """Rescan USB; remembered devices that were unavailable are retried."""
         self._devices.refresh()
-
-    @Slot(str)
-    def connectFirstDiscovered(self, kind: str) -> None:
-        """Connect the first USB row of this kind (scan order), like sidebar toggle ON."""
-        if kind not in ("keyboard", "led_bar"):
-            return
-        root = QModelIndex()
-        n = self._devices.rowCount(root)
-        for row in range(n):
-            idx = self._devices.index(row, 0)
-            k = self._devices.data(idx, DeviceListModel.KindRole)
-            if k != kind:
-                continue
-            bus = self._devices.data(idx, DeviceListModel.BusRole)
-            addr = self._devices.data(idx, DeviceListModel.AddrRole)
-            if bus is None or addr is None:
-                continue
-            ibus, iaddr = int(bus), int(addr)
-            if self.isDeviceOpenInApp(kind, ibus, iaddr):
-                return
-            self.connectDevice(kind, ibus, iaddr)
-            return
-
-    @Slot()
-    def tryAutoConnectDiscoveredDevices(self) -> None:
-        if not self._auto_connect_on_startup:
-            return
-        root = QModelIndex()
-        n = self._devices.rowCount(root)
-        keyboard_done = False
-        led_done = False
-        for row in range(n):
-            idx = self._devices.index(row, 0)
-            kind = self._devices.data(idx, DeviceListModel.KindRole)
-            bus = self._devices.data(idx, DeviceListModel.BusRole)
-            addr = self._devices.data(idx, DeviceListModel.AddrRole)
-            if kind is None or bus is None or addr is None:
-                continue
-            if kind == "keyboard" and not keyboard_done:
-                if not self.isDeviceOpenInApp("keyboard", int(bus), int(addr)):
-                    self.connectDevice("keyboard", int(bus), int(addr))
-                keyboard_done = True
-            elif kind == "led_bar" and not led_done:
-                if not self.isDeviceOpenInApp("led_bar", int(bus), int(addr)):
-                    self.connectDevice("led_bar", int(bus), int(addr))
-                led_done = True
+        retried = False
+        for kind in KINDS:
+            if self._unavailable[kind]:
+                self._restore_kind(kind)
+                retried = True
+        if retried:
+            self.deviceMemoryChanged.emit()
 
     @Slot(str, int, int)
     def connectDevice(self, kind: str, bus: int, addr: int) -> None:
-        if kind == "keyboard":
-            self._keyboard.connectAt(bus, addr)
-        elif kind == "led_bar":
-            self._led.connectAt(bus, addr)
+        """Connect from the Devices page; the device is remembered once the connection succeeds."""
+        backend = self._backend(kind)
+        if backend is None:
+            return
+        row = next(
+            (
+                r
+                for r in self._devices.rows()
+                if r["kind"] == kind and int(r["bus"]) == bus and int(r["addr"]) == addr
+            ),
+            None,
+        )
+        self._connecting_usb_id[kind] = _usb_id(row) if row is not None else None
+        backend.connectAt(bus, addr)
+        saved = self._saved_for(kind)
+        if saved is not None:
+            # Reconnecting a forgotten or replaced device brings its saved look back (US-003.AC-3).
+            backend.restore(saved)
+
+    @Slot()
+    def restoreRememberedDevices(self) -> None:
+        """Startup: migrate once, then reconnect remembered devices and apply their saved state.
+
+        Order (BR-10): LED bar first, then keyboard; a keyboard animation is queued last
+        by the backend itself.
+        """
+        if self._needs_migration:
+            self._migrate_legacy_auto_connect()
+        for kind in ("led_bar", "keyboard"):
+            self._restore_kind(kind)
+        self.deviceMemoryChanged.emit()
 
     @Slot()
     def shutdown(self) -> None:
         self._worker.shutdown()
+
+    # --- remembered devices (QML) -------------------------------------------------
+
+    @Property(bool, notify=deviceMemoryChanged)
+    def keyboardRemembered(self) -> bool:
+        return self._is_remembered("keyboard")
+
+    @Property(bool, notify=deviceMemoryChanged)
+    def ledBarRemembered(self) -> bool:
+        return self._is_remembered("led_bar")
+
+    @Property(str, notify=deviceMemoryChanged)
+    def keyboardUnavailableReason(self) -> str:
+        return self._unavailable["keyboard"]
+
+    @Property(str, notify=deviceMemoryChanged)
+    def ledBarUnavailableReason(self) -> str:
+        return self._unavailable["led_bar"]
+
+    # --- internals ------------------------------------------------------------------
+
+    def _backends(self):
+        return (("keyboard", self._keyboard), ("led_bar", self._led))
+
+    def _backend(self, kind: str):
+        return {"keyboard": self._keyboard, "led_bar": self._led}.get(kind)
+
+    def _saved_for(self, kind: str) -> KeyboardState | LedBarState | None:
+        return self._saved.keyboard if kind == "keyboard" else self._saved.led_bar
+
+    def _is_remembered(self, kind: str) -> bool:
+        saved = self._saved_for(kind)
+        return saved is not None and saved.remembered
+
+    def _put(self, kind: str, value: KeyboardState | LedBarState | None) -> None:
+        if kind == "keyboard":
+            self._saved = replace(self._saved, keyboard=value)
+        else:
+            self._saved = replace(self._saved, led_bar=value)
+
+    def _save(self) -> None:
+        try:
+            self._store.save(self._saved)
+        except OSError as e:
+            msg = f"Could not save device state to {self._store.path}: {e.strerror or e}"
+            _LOG.error(msg)
+            self._state.reportError(msg)
+        else:
+            _LOG.debug("state saved: %s", self._store.path)
+
+    def _load_saved_state(self) -> None:
+        existed = self._store.exists()
+        try:
+            self._saved = self._store.load()
+        except StateFileError as e:
+            backup = self._store.quarantine()
+            msg = (
+                f"Saved device state was unreadable ({e.reason}) and was moved to "
+                f"{backup}. Starting fresh."
+            )
+            _LOG.warning(msg)
+            self._state.reportError(msg)
+            self._saved = DeviceState()
+            existed = True  # never auto-migrate over a file the user may want back
+        if existed:
+            self._settings.remove(LEGACY_AUTO_CONNECT_KEY)
+        else:
+            self._needs_migration = True
+
+    def _migrate_legacy_auto_connect(self) -> None:
+        """BR-14: turn the old auto-connect behaviour into remembered devices, once."""
+        raw = self._settings.value(LEGACY_AUTO_CONNECT_KEY)
+        enabled = True if raw is None else _truthy(raw)
+        if enabled:
+            rows = self._devices.rows()
+            for kind in KINDS:
+                row = next((r for r in rows if r["kind"] == kind), None)
+                if row is None:
+                    continue
+                if kind == "keyboard":
+                    self._put(kind, KeyboardState(usb_id=_usb_id(row)))
+                else:
+                    self._put(kind, LedBarState(usb_id=_usb_id(row)))
+        self._settings.remove(LEGACY_AUTO_CONNECT_KEY)
+        self._needs_migration = False
+        self._save()
+
+    def _restore_kind(self, kind: str) -> None:
+        saved = self._saved_for(kind)
+        if saved is None or not saved.remembered:
+            self._unavailable[kind] = ""
+            return
+        backend = self._backend(kind)
+        if backend.connected:
+            self._unavailable[kind] = ""
+            return
+        row = next(
+            (
+                r
+                for r in self._devices.rows()
+                if r["kind"] == kind and _usb_id(r) == saved.usb_id
+            ),
+            None,
+        )
+        if row is None:
+            if not self._unavailable[kind].startswith("Not found") and self._unavailable[kind]:
+                return  # keep a USB error reason until the device is seen again
+            self._unavailable[kind] = f"Not found ({saved.usb_id})"
+            _LOG.info("restore skipped: %s %s not found", kind, saved.usb_id)
+            return
+        self._unavailable[kind] = ""
+        self._connecting_usb_id[kind] = saved.usb_id
+        backend.connectAt(int(row["bus"]), int(row["addr"]))
+        backend.restore(saved)
+
+    def _set_remembered(self, kind: str, remembered: bool) -> None:
+        saved = self._saved_for(kind)
+        self._unavailable[kind] = ""
+        if saved is not None and saved.remembered != remembered:
+            self._put(kind, replace(saved, remembered=remembered))
+            self._save()
+        self.deviceMemoryChanged.emit()
+
+    def _on_connected_changed(self, kind: str) -> None:
+        backend = self._backend(kind)
+        usb_id = self._connecting_usb_id[kind]
+        if not backend.connected or usb_id is None:
+            return
+        self._connecting_usb_id[kind] = None
+        self._unavailable[kind] = ""
+        saved = self._saved_for(kind)
+        if saved is None:
+            new = KeyboardState(usb_id=usb_id) if kind == "keyboard" else LedBarState(usb_id=usb_id)
+            self._put(kind, new)
+            self._save()
+        elif not saved.remembered or saved.usb_id != usb_id:
+            self._put(kind, replace(saved, usb_id=usb_id, remembered=True))
+            self._save()
+        self.deviceMemoryChanged.emit()
+
+    def _on_connect_failed(self, kind: str, msg: str) -> None:
+        self._connecting_usb_id[kind] = None
+        if self._is_remembered(kind):
+            self._unavailable[kind] = msg
+            self.deviceMemoryChanged.emit()
+
+    def _on_persist(self, kind: str, changes: object) -> None:
+        saved = self._saved_for(kind)
+        if saved is None or not isinstance(changes, dict):
+            return
+        fields = {k: changes[k] for k in ("look", "power") if k in changes}
+        if kind == "keyboard":
+            if "brightness" in changes:
+                fields["brightness"] = changes["brightness"]
+            if "palette" in changes:
+                fields["palette"] = {**saved.palette, **changes["palette"]}
+        self._put(kind, replace(saved, **fields))
+        self._save()

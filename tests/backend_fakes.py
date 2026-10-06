@@ -17,8 +17,9 @@ def drain(worker: UsbWorker, rounds: int = 4) -> None:
 class FakeKeyboard:
     """Implements ``ports.protocols.KeyboardRgbDriver`` (+ inspect calls); records every call."""
 
-    def __init__(self, *, fail_on: frozenset[str] = frozenset()) -> None:
+    def __init__(self, *, fail_on: frozenset[str] = frozenset(), journal: list | None = None) -> None:
         self.calls: list[tuple] = []
+        self.journal = journal
         self.off = False
         self.effect = [10, 20, 30, 40, 50, 60]
         self.fail_on = fail_on
@@ -27,6 +28,8 @@ class FakeKeyboard:
         if name in self.fail_on:
             raise RuntimeError(f"{name} failed")
         self.calls.append((name, *args))
+        if self.journal is not None:
+            self.journal.append((type(self).__name__, name))
 
     def get_fw_version(self) -> tuple[int, int, int, int]:
         return (1, 2, 3, 4)
@@ -81,8 +84,11 @@ class FakeKeyboard:
 class FakeLedBar:
     """Implements ``ports.protocols.LedBarDriver`` with the real driver's attribute semantics."""
 
-    def __init__(self, *, fail_on: frozenset[str] = frozenset(), product_id: int = 0x7001) -> None:
+    def __init__(
+        self, *, fail_on: frozenset[str] = frozenset(), product_id: int = 0x7001, journal: list | None = None
+    ) -> None:
         self.calls: list[tuple] = []
+        self.journal = journal
         self.fail_on = fail_on
         self.product_id = product_id
         self.brightness = 50
@@ -93,6 +99,8 @@ class FakeLedBar:
         if name in self.fail_on:
             raise RuntimeError(f"{name} failed")
         self.calls.append((name, *args))
+        if self.journal is not None:
+            self.journal.append((type(self).__name__, name))
 
     def power_on(self) -> None:
         self._rec("power_on")

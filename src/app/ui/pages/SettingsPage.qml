@@ -53,15 +53,6 @@ Kirigami.Page {
                     Layout.fillWidth: true
                 }
 
-                CheckBox {
-                    text: qsTr("Auto-connect keyboard and LED bar when the app starts (after USB scan)")
-                    checked: App.autoConnectOnStartup
-                    onToggled: function (c) { App.autoConnectOnStartup = c }
-                    ToolTip.visible: hovered
-                    ToolTip.text: qsTr("Uses the first matching device of each type from the device list. Disable if you prefer to connect manually on the Devices tab.")
-                    Layout.fillWidth: true
-                }
-
                 Kirigami.Separator { Layout.fillWidth: true }
 
                 Kirigami.Heading {

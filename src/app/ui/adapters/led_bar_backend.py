@@ -22,6 +22,7 @@ class LedBarBackend(QObject):
     infoChanged = Signal()
     lightChanged = Signal()
     persistUpdate = Signal(object)
+    connectFailed = Signal(str)
 
     def __init__(self, worker: UsbWorker, parent: QObject | None = None) -> None:
         super().__init__(parent)
@@ -108,7 +109,11 @@ class LedBarBackend(QObject):
     @Slot(int, int)
     def connectAt(self, bus: int, addr: int) -> None:
         def task() -> None:
-            self._bar = open_led_bar_at(bus, addr)
+            try:
+                self._bar = open_led_bar_at(bus, addr)
+            except Exception as e:
+                self.connectFailed.emit(f"{type(e).__name__}: {e}")
+                raise
             self._bus = bus
             self._addr = addr
             self.connectedChanged.emit()

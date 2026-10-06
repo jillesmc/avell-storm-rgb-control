@@ -28,6 +28,13 @@ class AppState(QObject):
     def lastError(self) -> str:
         return self._last_error
 
+    @Slot(str)
+    def reportError(self, msg: str) -> None:
+        """Show a message in the error banner without touching the busy counter."""
+        if msg and self._last_error != msg:
+            self._last_error = msg
+            self.lastErrorChanged.emit()
+
     @Slot()
     def clearError(self) -> None:
         if self._last_error:

@@ -44,6 +44,10 @@ class DeviceListModel(QAbstractListModel):
             return row["label"]
         return None
 
+    def rows(self) -> list[dict]:
+        """Scan results in order (dicts with kind, bus, addr, vid, pid, label)."""
+        return list(self._items)
+
     def refresh(self) -> None:
         self.beginResetModel()
         self._items = enumerate_usb_devices()
