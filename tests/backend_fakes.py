@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import QCoreApplication
-
-from app.core.usb_worker import UsbWorker
 
 
-def drain(worker: UsbWorker, rounds: int = 4) -> None:
+def drain(worker, rounds: int = 4) -> None:
     """Wait until every queued USB task ran, then deliver queued signals; repeat for follow-ups."""
+    from PySide6.QtCore import QCoreApplication
+
     for _ in range(rounds):
         worker._pool.submit(lambda: None).result(timeout=5)
         QCoreApplication.processEvents()

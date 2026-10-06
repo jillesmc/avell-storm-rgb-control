@@ -1,5 +1,5 @@
 ---
-status: pending
+status: completed
 title: "Task 5: CLI shows and restores the saved state"
 type: feature
 complexity: medium
@@ -31,10 +31,10 @@ This task adds `avell-storm-rgb state show` and `avell-storm-rgb state restore`.
 
 ## Subtasks
 
-- [ ] 5.1 `state` subparser with `show` and `restore` in `_build_parser()`.
-- [ ] 5.2 `show`: human and `--json` output.
-- [ ] 5.3 `restore`: ordering, filtering, results, animation in the foreground, `--json`, exit codes.
-- [ ] 5.4 Tests.
+- [x] 5.1 `state` subparser with `show` and `restore` in `_build_parser()`.
+- [x] 5.2 `show`: human and `--json` output.
+- [x] 5.3 `restore`: ordering, filtering, results, animation in the foreground, `--json`, exit codes.
+- [x] 5.4 Tests.
 
 ## Implementation Details
 
@@ -60,11 +60,18 @@ This task adds `avell-storm-rgb state show` and `avell-storm-rgb state restore`.
 
 ## Tests
 
-- [ ] UT-070, UT-071, UT-072 — `state show`
-- [ ] UT-073, UT-074, UT-075, UT-076, UT-077, UT-078, UT-079, UT-080 — `state restore`
-- [ ] E2E-001, E2E-002, E2E-003 — the `_dx.md` transcripts
+- [x] UT-070, UT-071, UT-072 — `state show`
+- [x] UT-073, UT-074, UT-075, UT-076, UT-077, UT-078, UT-079, UT-080 — `state restore`
+- [x] E2E-001, E2E-002, E2E-003 — the `_dx.md` transcripts
 
 ## Success Criteria
 
 - `make test` is green.
 - `uv run avell-storm-rgb state --help` lists `show` and `restore`.
+
+## Completion Notes
+
+- Human output and the example state file are asserted **against `_dx.md` itself** (the tests parse the golden path and the `## State file` JSON block), so contract drift fails the suite.
+- `--json` with no state file prints `{"path": …, "results": []}` (not specified in `_dx.md`; mirrors `state show --json`).
+- `tests/backend_fakes.py` no longer imports PySide6 at module level, so the CLI tests reuse the same fakes without Qt.
+- Evidence: `tests/test_cli_state.py` (16 passed: UT-070–080, E2E-001–003 + 2 extra) and `state -h` in `tests/test_cli_help.py`; full suite 131 passed; the CLI imports with PySide6 blocked.

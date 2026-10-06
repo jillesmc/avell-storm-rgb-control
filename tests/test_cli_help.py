@@ -15,3 +15,13 @@ def test_device_list_help() -> None:
         text=True,
     )
     assert r.returncode == 0
+
+
+def test_state_help_lists_show_and_restore() -> None:
+    r = subprocess.run(
+        [sys.executable, "-m", "avell_storm_rgb.adapters.cli.main", "state", "-h"],
+        capture_output=True,
+        text=True,
+    )
+    assert r.returncode == 0
+    assert "show" in r.stdout and "restore" in r.stdout

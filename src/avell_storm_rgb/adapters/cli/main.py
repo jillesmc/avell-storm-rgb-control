@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import math
 import random
 import sys
@@ -14,6 +15,18 @@ from avell_storm_rgb.application.device_facade import (
     describe_led_bar_usb_devices,
     open_keyboard,
     open_led_bar,
+)
+from avell_storm_rgb.application.device_state import (
+    AnimationLook,
+    DeviceState,
+    DeviceStateStore,
+    KeyboardState,
+    LedBarState,
+    StateFileError,
+    describe_look,
+    restore_keyboard,
+    restore_led_bar,
+    state_to_dict,
 )
 from avell_storm_rgb.application.screen_follow_dispatch import run_screen_follow_auto
 from avell_storm_rgb.application.screen_follow_session import is_wayland_session
@@ -270,6 +283,154 @@ def _cmd_led_bar_inspect(args: argparse.Namespace) -> int:
     return 0
 
 
+# --- state show / restore ---------------------------------------------------------
+
+_KIND_LABEL = {"keyboard": "keyboard", "led_bar": "led-bar"}
+_PREFIX_WIDTH = 44  # "keyboard  " + "048d:ce00  " + "remembered  " + "light on   "
+
+
+def _load_state(store: DeviceStateStore) -> DeviceState | None:
+    """Loaded state, or ``None`` after printing the unreadable-file error (exit 3)."""
+    try:
+        return store.load()
+    except StateFileError as e:
+        print(f"error: saved state is unreadable ({e.reason}): {e.path}", file=sys.stderr)
+        return None
+
+
+def _saved_devices(state: DeviceState) -> list[tuple[str, KeyboardState | LedBarState]]:
+    out: list[tuple[str, KeyboardState | LedBarState]] = []
+    if state.keyboard is not None:
+        out.append(("keyboard", state.keyboard))
+    if state.led_bar is not None:
+        out.append(("led_bar", state.led_bar))
+    return out
+
+
+def _cmd_state_show(args: argparse.Namespace) -> int:
+    store = DeviceStateStore()
+    state = _load_state(store)
+    if state is None:
+        return 3
+    if args.json:
+        print(json.dumps({"path": str(store.path), **state_to_dict(state)}))
+        return 0
+    if not store.exists():
+        print(f"No saved state at {store.path}")
+        return 0
+    print(f"State file: {store.path}")
+    for kind, saved in _saved_devices(state):
+        prefix = (
+            f"{_KIND_LABEL[kind]:<10}{saved.usb_id}  "
+            f"{'remembered' if saved.remembered else 'forgotten':<12}"
+            f"{'light ' + saved.power:<11}"
+        )
+        print(prefix + describe_look(saved.look))
+        if isinstance(saved, KeyboardState):
+            extras = []
+            if saved.brightness is not None:
+                extras.append(f"brightness {saved.brightness}")
+            if saved.palette:
+                extras.append("palette slots " + ", ".join(str(s) for s in sorted(saved.palette)))
+            if extras:
+                print(" " * _PREFIX_WIDTH + " · ".join(extras))
+    return 0
+
+
+def _play_animation_foreground(kb, look: AnimationLook) -> None:
+    lines = open(look.path, encoding="utf-8", errors="replace").read().splitlines()
+
+    def one_pass() -> None:
+        run_animation_lines(
+            lines,
+            on_apply=lambda m: kb.set_key_colors(m),
+            on_brightness=kb.set_brightness,
+            sleep=time.sleep,
+        )
+
+    try:
+        if look.forever:
+            while True:
+                one_pass()
+        else:
+            for _ in range(look.loops):
+                one_pass()
+    except KeyboardInterrupt:
+        pass
+
+
+def _restore_one(kind: str, saved, *, no_animation: bool) -> tuple[dict, str, object]:
+    """Restore one device. Returns (json result, human summary, (kb, animation) to play or None)."""
+    base = {"kind": kind, "usb_id": saved.usb_id}
+    try:
+        dev = open_keyboard(usb_id=saved.usb_id) if kind == "keyboard" else open_led_bar(usb_id=saved.usb_id)
+    except FileNotFoundError:
+        return {**base, "status": "skipped", "reason": "device not found"}, "skipped: device not found", None
+    except RuntimeError as e:
+        if str(e).startswith("No ITE 8233"):
+            return {**base, "status": "skipped", "reason": "device not found"}, "skipped: device not found", None
+        return {**base, "status": "failed", "reason": f"{type(e).__name__}: {e}"}, f"failed: {type(e).__name__}: {e}", None
+    except Exception as e:
+        return {**base, "status": "failed", "reason": f"{type(e).__name__}: {e}"}, f"failed: {type(e).__name__}: {e}", None
+    try:
+        plan = restore_keyboard(dev, saved) if kind == "keyboard" else restore_led_bar(dev, saved)
+    except Exception as e:
+        return {**base, "status": "failed", "reason": f"{type(e).__name__}: {e}"}, f"failed: {type(e).__name__}: {e}", None
+
+    result = {**base, "status": "restored", "applied": list(plan.applied), "warnings": list(plan.warnings)}
+    play = None
+    if saved.power == "off":
+        summary = "light off"
+    elif plan.warnings:
+        summary = "light on (warning: " + "; ".join(plan.warnings) + ")"
+    elif plan.pending_animation is not None and no_animation:
+        done = [a.split()[0] for a in plan.applied if not a.startswith("animation")]
+        summary = (", ".join(done) or "light on") + " (animation skipped)"
+    elif plan.pending_animation is not None:
+        summary = describe_look(plan.pending_animation)
+        summary += " — playing, Ctrl+C to stop" if plan.pending_animation.forever else " — playing"
+        play = (dev, plan.pending_animation)
+    elif saved.look is not None:
+        summary = describe_look(saved.look)
+    else:
+        summary = "light on"
+    return result, "restored: " + summary, play
+
+
+def _cmd_state_restore(args: argparse.Namespace) -> int:
+    store = DeviceStateStore()
+    state = _load_state(store)
+    if state is None:
+        return 3
+    if not store.exists():
+        if args.json:
+            print(json.dumps({"path": str(store.path), "results": []}))
+        else:
+            print(f"Nothing to restore: no saved state at {store.path}")
+        return 0
+    wanted = {"all": ("led_bar", "keyboard"), "keyboard": ("keyboard",), "led-bar": ("led_bar",)}[args.kind]
+    devices = dict(_saved_devices(state))
+    results: list[dict] = []
+    play = None
+    code = 0
+    for kind in ("led_bar", "keyboard"):
+        saved = devices.get(kind)
+        if kind not in wanted or saved is None or not saved.remembered:
+            continue
+        result, summary, to_play = _restore_one(kind, saved, no_animation=args.no_animation)
+        results.append(result)
+        if result["status"] != "restored" or result.get("warnings"):
+            code = 1
+        if not args.json:
+            print(f"{_KIND_LABEL[kind]:<10}{saved.usb_id}  {summary}", flush=True)
+        play = to_play or play
+    if args.json:
+        print(json.dumps({"path": str(store.path), "results": results}), flush=True)
+    if play is not None:
+        _play_animation_foreground(*play)
+    return code
+
+
 def _build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="avell-storm-rgb",
@@ -408,6 +569,18 @@ def _build_parser() -> argparse.ArgumentParser:
     lb_s.set_defaults(_handler=_cmd_led_bar_speed)
 
     lb_sub.add_parser("inspect", help="LED bar status").set_defaults(_handler=_cmd_led_bar_inspect)
+
+    # state
+    st = sub.add_parser("state", help="Saved device state written by the GUI")
+    st_sub = st.add_subparsers(dest="state_cmd", required=True)
+    st_show = st_sub.add_parser("show", help="Show the saved state")
+    st_show.add_argument("--json", action="store_true", help="Machine-readable output")
+    st_show.set_defaults(_handler=_cmd_state_show)
+    st_re = st_sub.add_parser("restore", help="Apply the saved state to remembered devices")
+    st_re.add_argument("--kind", choices=["all", "keyboard", "led-bar"], default="all")
+    st_re.add_argument("--no-animation", action="store_true", help="Skip a saved animation")
+    st_re.add_argument("--json", action="store_true", help="Machine-readable output")
+    st_re.set_defaults(_handler=_cmd_state_restore)
 
     return p
 
