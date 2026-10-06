@@ -441,22 +441,6 @@ Item {
             Layout.fillWidth: true
             spacing: Kirigami.Units.smallSpacing
 
-            Button {
-                text: qsTr("Power off")
-                ToolTip.visible: hovered
-                ToolTip.text: qsTr("Turn LED bar off. Last applied look is stored for Power on.")
-                enabled: App.ledBar.connected
-                onClicked: App.ledBar.powerOff()
-            }
-            Button {
-                text: qsTr("Power on")
-                ToolTip.visible: hovered
-                ToolTip.text: App.ledBar.replayPowerOnAvailable
-                              ? qsTr("Initialize the bar and restore the last applied colours / effect.")
-                              : qsTr("Apply a configuration first, then Power off, to enable replay.")
-                enabled: App.ledBar.connected && App.ledBar.replayPowerOnAvailable
-                onClicked: App.ledBar.powerOnReplay()
-            }
             Item {
                 Layout.fillWidth: true
             }

@@ -1,5 +1,5 @@
 ---
-status: pending
+status: completed
 title: "Task 2: Backends save looks, toggle the light and restore"
 type: feature
 complexity: high
@@ -42,11 +42,11 @@ The old footer power buttons and replay machinery go away. task_03 consumes thes
 
 ## Subtasks
 
-- [ ] 2.1 Keyboard: emit `persistUpdate` from effect, solid, per-key Apply, animation start, palette slot/restore/random and brightness flush.
-- [ ] 2.2 Keyboard: `lightOn`, `setLightOn`, BR-7 fallback (snapshot → `rainbow`), BR-8, BR-11 stop rule.
-- [ ] 2.3 LED bar: replace replay records with full-parameter looks (KD-5); `lightOn`, `setLightOn`, `persistUpdate`.
-- [ ] 2.4 Both: `restore(state)` via worker using the core restore functions; animation submitted last.
-- [ ] 2.5 Remove the footer power buttons and the hard-cut members; rewrite `tests/test_*_power_replay.py`.
+- [x] 2.1 Keyboard: emit `persistUpdate` from effect, solid, per-key Apply, animation start, palette slot/restore/random and brightness flush.
+- [x] 2.2 Keyboard: `lightOn`, `setLightOn`, BR-7 fallback (snapshot → `rainbow`), BR-8, BR-11 stop rule.
+- [x] 2.3 LED bar: replace replay records with full-parameter looks (KD-5); `lightOn`, `setLightOn`, `persistUpdate`.
+- [x] 2.4 Both: `restore(state)` via worker using the core restore functions; animation submitted last.
+- [x] 2.5 Remove the footer power buttons and the hard-cut members; rewrite `tests/test_*_power_replay.py`.
 
 ## Implementation Details
 
@@ -77,11 +77,20 @@ The old footer power buttons and replay machinery go away. task_03 consumes thes
 
 ## Tests
 
-- [ ] UT-040, UT-041, UT-042, UT-043, UT-044, UT-045, UT-046, UT-047, UT-048, UT-049 — keyboard persist and the stop-before-disconnect rule
-- [ ] UT-050, UT-051, UT-052, UT-053 — LED bar persist
-- [ ] UT-060, UT-061, UT-062, UT-063, UT-064, UT-065, UT-066, UT-067 — light toggle
+- [x] UT-040, UT-041, UT-042, UT-043, UT-044, UT-045, UT-046, UT-047, UT-048, UT-049 — keyboard persist and the stop-before-disconnect rule
+- [x] UT-050, UT-051, UT-052, UT-053 — LED bar persist
+- [x] UT-060, UT-061, UT-062, UT-063, UT-064, UT-065, UT-066, UT-067 — light toggle
 
 ## Success Criteria
 
 - `make test` is green.
 - `grep -rn "powerOnReplay\|replayPowerOnAvailable\|replayModeUpdate" src` finds nothing.
+
+## Completion Notes
+
+- Long tasks (animation, follow-screen) now get **one stop event per task** (`_new_long_task_stop`). A Stop or a new keyboard look sets the current event before submitting. This fixes a pre-existing bug: after Stop, a new "forever" animation exited immediately because the shared event stayed set. Animation `wait` lines now abort on Stop instead of sleeping out the pass.
+- Animations always run with `show_busy=False` (they are user-stoppable long tasks). This resolves ARCHITECTURE debt #7; task_06 updates the doc.
+- Keyboard `restore()` hands `pending_animation` to the GUI thread via a queued signal, so it is submitted after everything queued in the same restore pass (Safety Invariant 6, completed by task_03's ordering).
+- Per-key looks are snapshotted on the GUI thread at submit time (removes the old `dict(self._key_colors)` read on the USB thread).
+- Missing-animation message is formatted by the backend as `Keyboard: saved animation file not found: <path>. Light state restored; look not applied.` (`restoreWarning`); task_03 routes it to `lastError`.
+- Evidence: `tests/test_keyboard_backend_light.py` + `tests/test_led_bar_backend_light.py` (24 passed); full suite 90 passed ×3; GUI shell/pages/smoke with no QML binding errors; hard-cut grep clean.

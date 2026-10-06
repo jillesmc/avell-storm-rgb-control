@@ -1204,13 +1204,6 @@ Item {
             Layout.fillWidth: true
             spacing: Kirigami.Units.smallSpacing
 
-            Button {
-                text: qsTr("Power off")
-                ToolTip.visible: hovered
-                ToolTip.text: qsTr("Turn keyboard backlight off.")
-                enabled: App.keyboard.connected
-                onClicked: App.keyboard.powerOff()
-            }
             Item {
                 Layout.fillWidth: true
             }
