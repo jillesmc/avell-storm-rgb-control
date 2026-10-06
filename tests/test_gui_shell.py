@@ -70,6 +70,20 @@ def test_device_error_inline_exists():
     facade.shutdown()
 
 
+def test_settings_autostart_controls_exist():
+    ensure_qapp()
+    engine, facade = load_main_qml_engine()
+    if facade is None:
+        pytest.skip("Kirigami / QML imports missing.")
+
+    win = root_quick_window(engine)
+    settings = find_child_named(win, "settingsPage")
+    assert settings is not None
+    assert find_child_named(settings, "launchAtLoginCheck") is not None
+    assert find_child_named(settings, "settingsErrorInline") is not None
+    facade.shutdown()
+
+
 def test_keyboard_and_led_apply_config_buttons_exist():
     ensure_qapp()
     engine, facade = load_main_qml_engine()

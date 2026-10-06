@@ -26,7 +26,7 @@ dependencies = ["pyusb>=1.2.1"]
 [project.optional-dependencies]
 # Desktop GUI: also needs Kirigami 6 QML from the OS (e.g. Arch kirigami, KDE Flatpak runtime).
 # PyPI wheels do not ship org.kde.kirigami; set QML_IMPORT_PATH if Qt's path is nonstandard.
-gui = ["PySide6>=6.6"]
+gui = ["PySide6>=6.6", "evdev>=1.7"]
 screen = [
   "python-xlib>=0.33",
   "Pillow>=10.0.0",
@@ -40,6 +40,10 @@ avell-storm-rgb-gui = "app.main:main"
 
 [tool.hatch.build]
 sources = ["src"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/avell_storm_rgb/domain/keyboard_layouts/profiles" = "avell_storm_rgb/domain/keyboard_layouts/profiles"
+"src/avell_storm_rgb/domain/keyboard_layouts/usb_defaults.json" = "avell_storm_rgb/domain/keyboard_layouts/usb_defaults.json"
 
 [tool.hatch.build.targets.sdist]
 include = ["src/avell_storm_rgb", "src/app", "README.md", "LICENSE", "NOTICE", "docs", "assets"]

@@ -77,7 +77,8 @@ Kirigami.ApplicationWindow {
         keyboardSubNavModel.append({ rowKind: "item", headerText: "", itemText: qsTr("Animation file"), iconName: "media-playlist-repeat", page: 4 })
         keyboardSubNavModel.append({ rowKind: "item", headerText: "", itemText: qsTr("Follow screen"), iconName: "video-display", page: 5 })
         keyboardSubNavModel.append({ rowKind: "header", headerText: qsTr("Extra"), itemText: "", iconName: "", page: -1 })
-        keyboardSubNavModel.append({ rowKind: "item", headerText: "", itemText: qsTr("Tools"), iconName: "applications-system", page: 6 })
+        keyboardSubNavModel.append({ rowKind: "item", headerText: "", itemText: qsTr("Calibration"), iconName: "preferences-desktop-keyboard", page: 6 })
+        keyboardSubNavModel.append({ rowKind: "item", headerText: "", itemText: qsTr("Tools"), iconName: "applications-system", page: 7 })
     }
 
     function syncKeyboardSubNavListHighlight() {

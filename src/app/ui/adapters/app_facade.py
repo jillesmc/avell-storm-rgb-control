@@ -23,6 +23,7 @@ from avell_storm_rgb.infrastructure.usb.ite8291_usb import (
 )
 from avell_storm_rgb.infrastructure.usb.ite8233_usb import LED_BAR_EFFECT_CODES
 
+from app.core import xdg_autostart
 from app.ui.adapters.app_state import AppState
 from app.ui.adapters.device_model import DeviceListModel
 from app.ui.adapters.keyboard_backend import KeyboardBackend
@@ -41,6 +42,8 @@ class AppFacade(QObject):
     deviceConnectionChanged = Signal()
     closeToTrayChanged = Signal()
     autoConnectOnStartupChanged = Signal()
+    launchAtLoginChanged = Signal()
+    settingsErrorChanged = Signal()
 
     def __init__(self, parent: QObject | None = None) -> None:
         super().__init__(parent)
@@ -59,6 +62,8 @@ class AppFacade(QObject):
             self._auto_connect_on_startup = raw_ac.lower() in ("1", "true", "yes", "on")
         else:
             self._auto_connect_on_startup = bool(raw_ac)
+        self._launch_at_login = xdg_autostart.is_enabled()
+        self._settings_error = ""
         self._worker = UsbWorker(self)
         self._state = AppState(self._worker, self)
         self._devices = DeviceListModel(self)
@@ -104,6 +109,49 @@ class AppFacade(QObject):
             self._auto_connect_on_startup = v
             self._settings.setValue("ui/autoConnectOnStartup", v)
             self.autoConnectOnStartupChanged.emit()
+
+    @Property(bool, notify=launchAtLoginChanged)
+    def launchAtLogin(self) -> bool:
+        return self._launch_at_login
+
+    @launchAtLogin.setter
+    def launchAtLogin(self, value: bool) -> None:
+        enabled = bool(value)
+        if enabled == self._launch_at_login:
+            return
+        try:
+            if enabled:
+                xdg_autostart.enable()
+            else:
+                xdg_autostart.disable()
+        except OSError as exc:
+            path = xdg_autostart.autostart_file_path()
+            self._settings_error = f"Autostart: cannot write {path}: {exc}"
+            self.settingsErrorChanged.emit()
+            self.launchAtLoginChanged.emit()
+            return
+        self._launch_at_login = enabled
+        self.launchAtLoginChanged.emit()
+        if self._settings_error:
+            self._settings_error = ""
+            self.settingsErrorChanged.emit()
+
+    @Property(str, notify=settingsErrorChanged)
+    def settingsError(self) -> str:
+        return self._settings_error
+
+    @Slot()
+    def refreshLaunchAtLogin(self) -> None:
+        current = xdg_autostart.is_enabled()
+        if current != self._launch_at_login:
+            self._launch_at_login = current
+            self.launchAtLoginChanged.emit()
+
+    @Slot()
+    def clearSettingsError(self) -> None:
+        if self._settings_error:
+            self._settings_error = ""
+            self.settingsErrorChanged.emit()
 
     @Slot()
     def quitApplication(self) -> None:
@@ -297,4 +345,5 @@ class AppFacade(QObject):
 
     @Slot()
     def shutdown(self) -> None:
+        self._keyboard.shutdownCalibrationInput()
         self._worker.shutdown()

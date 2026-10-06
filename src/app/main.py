@@ -17,7 +17,10 @@ from app.ui.adapters.app_facade import AppFacade
 
 
 def main() -> int:
-    qt_argv, verbose = strip_verbose_argv(sys.argv)
+    start_in_background = "--background" in sys.argv
+    qt_argv, verbose = strip_verbose_argv(
+        [arg for arg in sys.argv if arg != "--background"]
+    )
     setup_logging(verbose=verbose)
 
     configure_quick_controls_style()
@@ -61,6 +64,9 @@ def main() -> int:
         app.setWindowIcon(app_icon)
         window.setIcon(app_icon)
     TrayController(window, app_icon, icon_dir if icon_dir.is_dir() else None, parent=app)
+
+    if start_in_background:
+        window.hide()
 
     return app.exec()
 

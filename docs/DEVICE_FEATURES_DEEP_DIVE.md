@@ -148,7 +148,7 @@ Legenda: **sim** = enviado e usado pelo builder; **—** = não faz parte do efe
 
 ### Teclado (`KeyboardPage.qml` + `main.qml`)
 
-O separador lateral (`keyboardSubNavIndex` 0…6) corresponde ao `StackLayout` interno. Na shell, a lista está **agrupada em secções** (Firmware, User-defined, Extra) com **título + traço horizontal** como na barra lateral principal; os índices 0…6 são os mesmos.
+O separador lateral (`keyboardSubNavIndex` 0…7) corresponde ao `StackLayout` interno. Na shell, a lista está **agrupada em secções** (Firmware, User-defined, Extra) com **título + traço horizontal** como na barra lateral principal; os índices 0…7 são os mesmos.
 
 | Índice | Título (traduzível na app) | Botão “Apply” | Ação principal ao aplicar |
 |--------|----------------------------|---------------|---------------------------|
@@ -158,13 +158,20 @@ O separador lateral (`keyboardSubNavIndex` 0…6) corresponde ao `StackLayout` i
 | 3 | Keyboard layout (per-key) | Sim | `applyKeyGrid(true)` |
 | 4 | Animation file | Não | `playAnimationFile` / `stopFollowOrAnimation` (animação) |
 | 5 | Follow screen | Não | `startFollowScreen` / `stopFollowOrAnimation` |
-| 6 | Tools | Não | `demoTestPattern`, `freezeAnimation` (ações imediatas) |
+| 6 | Calibration | Não | Ajuste de `keyId -> row,col` do dispositivo (persistido por hardware) |
+| 7 | Tools | Não | `demoTestPattern`, `freezeAnimation` (ações imediatas) |
 
 **Bloco Device (brilho)** no topo do scroll do teclado: **oculto** nas abas **Palette slot configuration** e **Tools** (índices 1 e 6); visível nas restantes.
 
-**Per-key semântico na GUI:** a aba mostra um **layout de teclado com teclas reais** (com labels e largura variável), não só uma grelha numérica. O utilizador pode clicar numa tecla para cor individual e usar arraste para seleção em lote. Internamente, cada tecla usa `keyId` e o backend traduz `keyId -> (row,col)` em `per_key_grid.py` antes de aplicar `set_key_colors`.
+**Per-key semântico na GUI:** a aba mostra um **layout de teclado com teclas reais** (com labels e largura variável). Cores de sessão são guardadas por **`keyId`** (não por célula visual). Perfis JSON em `src/avell_storm_rgb/domain/keyboard_layouts/profiles/` separam **geometria visual**, **identidade** (`keyId`) e **`deviceCell`** (LED real, explícito no JSON — nunca inferido só de `visual.x`).
 
-**Mapeamento para firmware:** no protocolo USB, o índice de linha do `ite8291r3-ctl` / `set_key_colors` tem **linha 0 na base** (como no `screen_mode` upstream, `getpixel((col, 5 - row))`). Por isso, ao aplicar per-key da GUI, o backend usa `color_map_ui_to_device` para inverter linhas. **Animação DSL** (`pos row col …`) e **follow-screen** mantêm coordenadas numéricas no **espaço do dispositivo** por compatibilidade com scripts e referências existentes.
+**Perfis embutidos:** `legacy_builtin` (mapa ANSI original), `abnt2_laptop_21` (topologia BR; default USB para PIDs ITE 8291 deste repo), `ansi_104_21`. Na aba **Calibration**, o combo **Keyboard layout profile** escolhe o perfil por dispositivo (`keyboard_mapping_overrides.json`, schema v2: `profileId` + `overrides`). Mudar de perfil limpa overrides e cores da sessão.
+
+**Mapeamento para firmware:** `set_key_colors` usa **linha 0 na base** do dispositivo. `per_key_grid.resolve_key_to_device_cell` aplica overrides de calibração por cima do `deviceCell` do perfil. **Animação DSL** e **follow-screen** mantêm coordenadas no espaço do dispositivo.
+
+**Calibração:** overrides por `keyId` → `(device_row, col)`; grelha 6×21 na aba Calibration; conflitos (duas teclas na mesma célula) aparecem a vermelho na vista de layout.
+
+**CLI layout:** `uv run avell-storm-rgb keyboard layout list|set|probe` — `probe` percorre células (stderr = prompts, stdout = JSON `keyId` → `[row,col]`).
 
 **Controlos do separador 0 (efeito firmware) sempre visíveis:** velocidade, combo “cor da paleta”, direção, reactive, save. O Python **filtra** com `EFFECT_KWARGS`; para muitos efeitos, **direção ou reactive não fazem nada**, e para `rainbow` **velocidade e cor de slot** não entram no pacote.
 

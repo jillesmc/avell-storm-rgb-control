@@ -1,0 +1,1638 @@
+{
+  "profileId": "ansi_104_21",
+  "description": "Built-in ANSI laptop + numpad (parity with original per_key_grid)",
+  "keys": [
+    [
+      {
+        "keyId": "esc",
+        "label": "Esc",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 0,
+          "x": 0,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 5,
+          "col": 0
+        }
+      },
+      {
+        "keyId": "f1",
+        "label": "F1",
+        "secondaryLabel": "Mute",
+        "visual": {
+          "row": 0,
+          "x": 1,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 5,
+          "col": 1
+        }
+      },
+      {
+        "keyId": "f2",
+        "label": "F2",
+        "secondaryLabel": "Vol-",
+        "visual": {
+          "row": 0,
+          "x": 2,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 5,
+          "col": 2
+        }
+      },
+      {
+        "keyId": "f3",
+        "label": "F3",
+        "secondaryLabel": "Vol+",
+        "visual": {
+          "row": 0,
+          "x": 3,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 5,
+          "col": 3
+        }
+      },
+      {
+        "keyId": "f4",
+        "label": "F4",
+        "secondaryLabel": "Mic",
+        "visual": {
+          "row": 0,
+          "x": 4,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 5,
+          "col": 4
+        }
+      },
+      {
+        "keyId": "f5",
+        "label": "F5",
+        "secondaryLabel": "Brt-",
+        "visual": {
+          "row": 0,
+          "x": 5,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 5,
+          "col": 5
+        }
+      },
+      {
+        "keyId": "f6",
+        "label": "F6",
+        "secondaryLabel": "Brt+",
+        "visual": {
+          "row": 0,
+          "x": 6,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 5,
+          "col": 6
+        }
+      },
+      {
+        "keyId": "f7",
+        "label": "F7",
+        "secondaryLabel": "Proj",
+        "visual": {
+          "row": 0,
+          "x": 7,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 5,
+          "col": 7
+        }
+      },
+      {
+        "keyId": "f8",
+        "label": "F8",
+        "secondaryLabel": "Air",
+        "visual": {
+          "row": 0,
+          "x": 8,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 5,
+          "col": 8
+        }
+      },
+      {
+        "keyId": "f9",
+        "label": "F9",
+        "secondaryLabel": "KBL-",
+        "visual": {
+          "row": 0,
+          "x": 9,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 5,
+          "col": 9
+        }
+      },
+      {
+        "keyId": "f10",
+        "label": "F10",
+        "secondaryLabel": "KBL+",
+        "visual": {
+          "row": 0,
+          "x": 10,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 5,
+          "col": 10
+        }
+      },
+      {
+        "keyId": "f11",
+        "label": "F11",
+        "secondaryLabel": "Prev",
+        "visual": {
+          "row": 0,
+          "x": 11,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 5,
+          "col": 11
+        }
+      },
+      {
+        "keyId": "f12",
+        "label": "F12",
+        "secondaryLabel": "Play",
+        "visual": {
+          "row": 0,
+          "x": 12,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 5,
+          "col": 12
+        }
+      },
+      {
+        "keyId": "prtsc",
+        "label": "PrtSc",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 0,
+          "x": 13,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 5,
+          "col": 13
+        }
+      },
+      {
+        "keyId": "scrlk",
+        "label": "ScrLk",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 0,
+          "x": 14,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 5,
+          "col": 14
+        }
+      },
+      {
+        "keyId": "pause",
+        "label": "Pause",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 0,
+          "x": 15,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 5,
+          "col": 15
+        }
+      },
+      {
+        "keyId": "mute",
+        "label": "Mute",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 0,
+          "x": 16,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 5,
+          "col": 16
+        }
+      },
+      {
+        "keyId": "vol_down",
+        "label": "Vol-",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 0,
+          "x": 17,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 5,
+          "col": 17
+        }
+      },
+      {
+        "keyId": "vol_up",
+        "label": "Vol+",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 0,
+          "x": 18,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 5,
+          "col": 18
+        }
+      },
+      {
+        "keyId": "kp_div",
+        "label": "N/",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 0,
+          "x": 19,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 5,
+          "col": 19
+        }
+      },
+      {
+        "keyId": "kp_mul",
+        "label": "N*",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 0,
+          "x": 20,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 5,
+          "col": 20
+        }
+      }
+    ],
+    [
+      {
+        "keyId": "grave",
+        "label": "'",
+        "secondaryLabel": "\"",
+        "visual": {
+          "row": 1,
+          "x": 0,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 4,
+          "col": 0
+        }
+      },
+      {
+        "keyId": "digit_1",
+        "label": "1",
+        "secondaryLabel": "!",
+        "visual": {
+          "row": 1,
+          "x": 1,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 4,
+          "col": 1
+        }
+      },
+      {
+        "keyId": "digit_2",
+        "label": "2",
+        "secondaryLabel": "@",
+        "visual": {
+          "row": 1,
+          "x": 2,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 4,
+          "col": 2
+        }
+      },
+      {
+        "keyId": "digit_3",
+        "label": "3",
+        "secondaryLabel": "#",
+        "visual": {
+          "row": 1,
+          "x": 3,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 4,
+          "col": 3
+        }
+      },
+      {
+        "keyId": "digit_4",
+        "label": "4",
+        "secondaryLabel": "$",
+        "visual": {
+          "row": 1,
+          "x": 4,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 4,
+          "col": 4
+        }
+      },
+      {
+        "keyId": "digit_5",
+        "label": "5",
+        "secondaryLabel": "%",
+        "visual": {
+          "row": 1,
+          "x": 5,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 4,
+          "col": 5
+        }
+      },
+      {
+        "keyId": "digit_6",
+        "label": "6",
+        "secondaryLabel": "¨",
+        "visual": {
+          "row": 1,
+          "x": 6,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 4,
+          "col": 6
+        }
+      },
+      {
+        "keyId": "digit_7",
+        "label": "7",
+        "secondaryLabel": "&",
+        "visual": {
+          "row": 1,
+          "x": 7,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 4,
+          "col": 7
+        }
+      },
+      {
+        "keyId": "digit_8",
+        "label": "8",
+        "secondaryLabel": "*",
+        "visual": {
+          "row": 1,
+          "x": 8,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 4,
+          "col": 8
+        }
+      },
+      {
+        "keyId": "digit_9",
+        "label": "9",
+        "secondaryLabel": "(",
+        "visual": {
+          "row": 1,
+          "x": 9,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 4,
+          "col": 9
+        }
+      },
+      {
+        "keyId": "digit_0",
+        "label": "0",
+        "secondaryLabel": ")",
+        "visual": {
+          "row": 1,
+          "x": 10,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 4,
+          "col": 10
+        }
+      },
+      {
+        "keyId": "minus",
+        "label": "-",
+        "secondaryLabel": "_",
+        "visual": {
+          "row": 1,
+          "x": 11,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 4,
+          "col": 11
+        }
+      },
+      {
+        "keyId": "equal",
+        "label": "=",
+        "secondaryLabel": "+",
+        "visual": {
+          "row": 1,
+          "x": 12,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 4,
+          "col": 12
+        }
+      },
+      {
+        "keyId": "backspace",
+        "label": "Backspace",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 1,
+          "x": 13,
+          "w": 2,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 4,
+          "col": 14
+        }
+      },
+      {
+        "keyId": "insert",
+        "label": "Ins",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 1,
+          "x": 15,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 4,
+          "col": 15
+        }
+      },
+      {
+        "keyId": "home",
+        "label": "Home",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 1,
+          "x": 16,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 4,
+          "col": 16
+        }
+      },
+      {
+        "keyId": "page_up",
+        "label": "PgUp",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 1,
+          "x": 17,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 4,
+          "col": 17
+        }
+      },
+      {
+        "keyId": "num_lock",
+        "label": "NumLk",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 1,
+          "x": 18,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 4,
+          "col": 18
+        }
+      },
+      {
+        "keyId": "kp_7",
+        "label": "N7",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 1,
+          "x": 19,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 4,
+          "col": 19
+        }
+      },
+      {
+        "keyId": "kp_8",
+        "label": "N8",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 1,
+          "x": 20,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 4,
+          "col": 20
+        }
+      }
+    ],
+    [
+      {
+        "keyId": "tab",
+        "label": "Tab",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 2,
+          "x": 0,
+          "w": 2,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 3,
+          "col": 1
+        }
+      },
+      {
+        "keyId": "q",
+        "label": "Q",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 2,
+          "x": 2,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 3,
+          "col": 2
+        }
+      },
+      {
+        "keyId": "w",
+        "label": "W",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 2,
+          "x": 3,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 3,
+          "col": 3
+        }
+      },
+      {
+        "keyId": "e",
+        "label": "E",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 2,
+          "x": 4,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 3,
+          "col": 4
+        }
+      },
+      {
+        "keyId": "r",
+        "label": "R",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 2,
+          "x": 5,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 3,
+          "col": 5
+        }
+      },
+      {
+        "keyId": "t",
+        "label": "T",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 2,
+          "x": 6,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 3,
+          "col": 6
+        }
+      },
+      {
+        "keyId": "y",
+        "label": "Y",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 2,
+          "x": 7,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 3,
+          "col": 7
+        }
+      },
+      {
+        "keyId": "u",
+        "label": "U",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 2,
+          "x": 8,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 3,
+          "col": 8
+        }
+      },
+      {
+        "keyId": "i",
+        "label": "I",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 2,
+          "x": 9,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 3,
+          "col": 9
+        }
+      },
+      {
+        "keyId": "o",
+        "label": "O",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 2,
+          "x": 10,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 3,
+          "col": 10
+        }
+      },
+      {
+        "keyId": "p",
+        "label": "P",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 2,
+          "x": 11,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 3,
+          "col": 11
+        }
+      },
+      {
+        "keyId": "bracket_left",
+        "label": "[",
+        "secondaryLabel": "{",
+        "visual": {
+          "row": 2,
+          "x": 12,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 3,
+          "col": 12
+        }
+      },
+      {
+        "keyId": "bracket_right",
+        "label": "]",
+        "secondaryLabel": "}",
+        "visual": {
+          "row": 2,
+          "x": 13,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 3,
+          "col": 13
+        }
+      },
+      {
+        "keyId": "backslash",
+        "label": "\\",
+        "secondaryLabel": "|",
+        "visual": {
+          "row": 2,
+          "x": 14,
+          "w": 2,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 3,
+          "col": 14
+        }
+      },
+      {
+        "keyId": "delete",
+        "label": "Del",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 2,
+          "x": 16,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 3,
+          "col": 16
+        }
+      },
+      {
+        "keyId": "end",
+        "label": "End",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 2,
+          "x": 17,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 3,
+          "col": 17
+        }
+      },
+      {
+        "keyId": "page_down",
+        "label": "PgDn",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 2,
+          "x": 18,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 3,
+          "col": 18
+        }
+      },
+      {
+        "keyId": "kp_9",
+        "label": "N9",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 2,
+          "x": 19,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 3,
+          "col": 19
+        }
+      },
+      {
+        "keyId": "kp_minus",
+        "label": "N-",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 2,
+          "x": 20,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 3,
+          "col": 20
+        }
+      }
+    ],
+    [
+      {
+        "keyId": "caps_lock",
+        "label": "Caps",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 3,
+          "x": 0,
+          "w": 2,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 2,
+          "col": 1
+        }
+      },
+      {
+        "keyId": "a",
+        "label": "A",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 3,
+          "x": 2,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 2,
+          "col": 2
+        }
+      },
+      {
+        "keyId": "s",
+        "label": "S",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 3,
+          "x": 3,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 2,
+          "col": 3
+        }
+      },
+      {
+        "keyId": "d",
+        "label": "D",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 3,
+          "x": 4,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 2,
+          "col": 4
+        }
+      },
+      {
+        "keyId": "f",
+        "label": "F",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 3,
+          "x": 5,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 2,
+          "col": 5
+        }
+      },
+      {
+        "keyId": "g",
+        "label": "G",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 3,
+          "x": 6,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 2,
+          "col": 6
+        }
+      },
+      {
+        "keyId": "h",
+        "label": "H",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 3,
+          "x": 7,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 2,
+          "col": 7
+        }
+      },
+      {
+        "keyId": "j",
+        "label": "J",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 3,
+          "x": 8,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 2,
+          "col": 8
+        }
+      },
+      {
+        "keyId": "k",
+        "label": "K",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 3,
+          "x": 9,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 2,
+          "col": 9
+        }
+      },
+      {
+        "keyId": "l",
+        "label": "L",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 3,
+          "x": 10,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 2,
+          "col": 10
+        }
+      },
+      {
+        "keyId": "semicolon",
+        "label": ";",
+        "secondaryLabel": ":",
+        "visual": {
+          "row": 3,
+          "x": 11,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 2,
+          "col": 11
+        }
+      },
+      {
+        "keyId": "quote",
+        "label": "~",
+        "secondaryLabel": "^",
+        "visual": {
+          "row": 3,
+          "x": 12,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 2,
+          "col": 12
+        }
+      },
+      {
+        "keyId": "enter",
+        "label": "Enter",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 3,
+          "x": 13,
+          "w": 3,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 2,
+          "col": 13
+        }
+      },
+      {
+        "keyId": "kp_4",
+        "label": "N4",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 3,
+          "x": 16,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 2,
+          "col": 16
+        }
+      },
+      {
+        "keyId": "kp_5",
+        "label": "N5",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 3,
+          "x": 17,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 2,
+          "col": 17
+        }
+      },
+      {
+        "keyId": "kp_6",
+        "label": "N6",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 3,
+          "x": 18,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 2,
+          "col": 18
+        }
+      },
+      {
+        "keyId": "kp_plus",
+        "label": "N+",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 3,
+          "x": 19,
+          "w": 2,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 2,
+          "col": 19
+        }
+      }
+    ],
+    [
+      {
+        "keyId": "shift_left",
+        "label": "Shift",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 4,
+          "x": 0,
+          "w": 3,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 1,
+          "col": 1
+        }
+      },
+      {
+        "keyId": "z",
+        "label": "Z",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 4,
+          "x": 3,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 1,
+          "col": 3
+        }
+      },
+      {
+        "keyId": "x",
+        "label": "X",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 4,
+          "x": 4,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 1,
+          "col": 4
+        }
+      },
+      {
+        "keyId": "c",
+        "label": "C",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 4,
+          "x": 5,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 1,
+          "col": 5
+        }
+      },
+      {
+        "keyId": "v",
+        "label": "V",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 4,
+          "x": 6,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 1,
+          "col": 6
+        }
+      },
+      {
+        "keyId": "b",
+        "label": "B",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 4,
+          "x": 7,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 1,
+          "col": 7
+        }
+      },
+      {
+        "keyId": "n",
+        "label": "N",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 4,
+          "x": 8,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 1,
+          "col": 8
+        }
+      },
+      {
+        "keyId": "m",
+        "label": "M",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 4,
+          "x": 9,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 1,
+          "col": 9
+        }
+      },
+      {
+        "keyId": "comma",
+        "label": ",",
+        "secondaryLabel": "<",
+        "visual": {
+          "row": 4,
+          "x": 10,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 1,
+          "col": 10
+        }
+      },
+      {
+        "keyId": "dot",
+        "label": ".",
+        "secondaryLabel": ">",
+        "visual": {
+          "row": 4,
+          "x": 11,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 1,
+          "col": 11
+        }
+      },
+      {
+        "keyId": "slash",
+        "label": "/",
+        "secondaryLabel": "?",
+        "visual": {
+          "row": 4,
+          "x": 12,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 1,
+          "col": 12
+        }
+      },
+      {
+        "keyId": "shift_right",
+        "label": "Shift",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 4,
+          "x": 13,
+          "w": 3,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 1,
+          "col": 13
+        }
+      },
+      {
+        "keyId": "up",
+        "label": "Up",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 4,
+          "x": 16,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 1,
+          "col": 16
+        }
+      },
+      {
+        "keyId": "kp_1",
+        "label": "N1",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 4,
+          "x": 17,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 1,
+          "col": 17
+        }
+      },
+      {
+        "keyId": "kp_2",
+        "label": "N2",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 4,
+          "x": 18,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 1,
+          "col": 18
+        }
+      },
+      {
+        "keyId": "kp_3",
+        "label": "N3",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 4,
+          "x": 19,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 1,
+          "col": 19
+        }
+      },
+      {
+        "keyId": "kp_enter_top",
+        "label": "NEnt",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 4,
+          "x": 20,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 1,
+          "col": 20
+        }
+      }
+    ],
+    [
+      {
+        "keyId": "ctrl_left",
+        "label": "Ctrl",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 5,
+          "x": 0,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 0,
+          "col": 0
+        }
+      },
+      {
+        "keyId": "meta_left",
+        "label": "Meta",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 5,
+          "x": 1,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 0,
+          "col": 1
+        }
+      },
+      {
+        "keyId": "alt_left",
+        "label": "Alt",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 5,
+          "x": 2,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 0,
+          "col": 2
+        }
+      },
+      {
+        "keyId": "space",
+        "label": "Space",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 5,
+          "x": 3,
+          "w": 7,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 0,
+          "col": 6
+        }
+      },
+      {
+        "keyId": "alt_right",
+        "label": "AltGr",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 5,
+          "x": 10,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 0,
+          "col": 10
+        }
+      },
+      {
+        "keyId": "fn",
+        "label": "Fn",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 5,
+          "x": 11,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 0,
+          "col": 11
+        }
+      },
+      {
+        "keyId": "menu",
+        "label": "Menu",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 5,
+          "x": 12,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 0,
+          "col": 12
+        }
+      },
+      {
+        "keyId": "ctrl_right",
+        "label": "Ctrl",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 5,
+          "x": 13,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 0,
+          "col": 13
+        }
+      },
+      {
+        "keyId": "left",
+        "label": "Left",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 5,
+          "x": 14,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 0,
+          "col": 14
+        }
+      },
+      {
+        "keyId": "down",
+        "label": "Down",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 5,
+          "x": 15,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 0,
+          "col": 15
+        }
+      },
+      {
+        "keyId": "right",
+        "label": "Right",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 5,
+          "x": 16,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 0,
+          "col": 16
+        }
+      },
+      {
+        "keyId": "kp_0",
+        "label": "N0",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 5,
+          "x": 17,
+          "w": 2,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 0,
+          "col": 18
+        }
+      },
+      {
+        "keyId": "kp_dot",
+        "label": "N.",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 5,
+          "x": 19,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 0,
+          "col": 19
+        }
+      },
+      {
+        "keyId": "app",
+        "label": "App",
+        "secondaryLabel": "",
+        "visual": {
+          "row": 5,
+          "x": 20,
+          "w": 1,
+          "h": 1
+        },
+        "deviceCell": {
+          "row": 0,
+          "col": 20
+        }
+      }
+    ]
+  ]
+}

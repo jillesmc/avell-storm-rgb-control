@@ -15,6 +15,11 @@ from avell_storm_rgb.application.device_facade import (
     open_keyboard,
     open_led_bar,
 )
+from avell_storm_rgb.application.keyboard_layout_cli import (
+    cmd_layout_list,
+    cmd_layout_probe,
+    cmd_layout_set,
+)
 from avell_storm_rgb.application.screen_follow_dispatch import run_screen_follow_auto
 from avell_storm_rgb.application.screen_follow_session import is_wayland_session
 from avell_storm_rgb.domain.anim_dsl import run_animation_lines
@@ -363,6 +368,19 @@ def _build_parser() -> argparse.ArgumentParser:
     k_in.add_argument("--brightness", action="store_true")
     k_in.add_argument("--power", action="store_true", help="Print on or off")
     k_in.set_defaults(_handler=_cmd_keyboard_inspect)
+
+    k_layout = kb_sub.add_parser("layout", help="Keyboard layout profiles")
+    layout_sub = k_layout.add_subparsers(dest="layout_cmd", required=True)
+    layout_sub.add_parser("list", help="List built-in layout profile ids").set_defaults(
+        _handler=lambda _a: cmd_layout_list()
+    )
+    k_layout_set = layout_sub.add_parser("set", help="Set active layout profile (session)")
+    k_layout_set.add_argument("profile_id", help="Profile id (e.g. abnt2_laptop_21)")
+    k_layout_set.set_defaults(_handler=lambda a: cmd_layout_set(a.profile_id))
+    layout_sub.add_parser(
+        "probe",
+        help="Walk device LED cells; enter keyId per line (skip empty/s/skip)",
+    ).set_defaults(_handler=lambda a: cmd_layout_probe(_open_kb(a)))
 
     # led-bar
     lb = sub.add_parser("led-bar", help="ITE 8233 LED bar")
