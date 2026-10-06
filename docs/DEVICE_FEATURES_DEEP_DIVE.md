@@ -1,243 +1,222 @@
-# Dispositivos RGB: capacidades, combinações e UI
+🇺🇸 English · [🇧🇷 Português](DEVICE_FEATURES_DEEP_DIVE.pt-BR.md)
 
-Este documento descreve o que o **ITE 8291** (retroiluminação do teclado) e o **ITE 8233** (barra LED) fazem ao nível de protocolo e de API deste repositório, **quais parâmetros se aplicam a cada efeito**, o que é **mutuamente exclusivo**, e como isso se reflete na **interface QML**. Foi elaborado a partir do código em `src/avell_storm_rgb/` e `src/app/`, cruzado com os projetos de referência locais [`ite8291r3-ctl`](https://github.com/pobrn/ite8291r3-ctl) e o script `ledbar` do repositório **ite8233-ledbar**.
+# RGB devices: capabilities, combinations and UI
 
-### Debug (travamentos / CPU na aba Firmware)
+⏱️ **Reading time:** ~10 min
 
-- Exportar `AVELL_DEBUG_FIRMWARE_UI=1` (ou `true`/`yes`/`on`) antes de arrancar a app.
-- No **stderr** Python: cada `KeyboardBackend.applyEffect` imprime uma linha com os parâmetros.
-- Na **consola Qt** (onde `console.log` aparece): pedidos `requestFirmwareEffectApply`, `pushFirmwareEffectToDevice`, disparos do timer de debounce, e a cada **1 s** na aba Firmware um resumo `scrollBodyWidth+` (quantas vezes a largura útil do scroll mudou — se subir ao centenas ao redimensionar, há churn de layout), `paletteMirror+`, `req+`, `push+`.
+> **TL;DR**
+> - **Keyboard (8291):** firmware effects **or** user mode (software colours). They replace each other. An effect's "colour" is a **palette slot index**, not RGB.
+> - **LED bar (8233):** brightness and speed are only sent **inside an effect**, so changing them always re-applies an effect.
+> - The GUI **disables** controls an effect doesn't use (`effectSupports`), and the backend **filters** parameters (`EFFECT_KWARGS`).
 
-### UI (agrupamento e brilho)
+**Read this if…** you need to know which parameter works with which effect, what excludes what, and how the UI maps to the backend.
 
-- **Teclado** ([`KeyboardPage.qml`](src/app/ui/pages/KeyboardPage.qml) + [`main.qml`](src/app/ui/main.qml)): o `ScrollView` usa **gutter fixo à direita** para a barra vertical (em vez de `rightPadding` condicionado ao conteúdo), para evitar oscilação largura ↔ reflow ↔ altura junto ao limite de scroll. O texto fechado do combo de cor de firmware é **atualizado só** quando mudam o índice ou o espelho da paleta (não em cada reflow). A secção **Device** (cabeçalho + texto + brilho) está **oculta** nas abas **Palette slot configuration** e **Tools**; noutras abas o brilho mostra-se como **0–100%** (convertido para 0–50 no USB); o movimento do slider chama `requestBrightnessFromUi` (debounce ~200 ms no [`KeyboardBackend`](src/app/ui/adapters/keyboard_backend.py)): envia `set_brightness` e, se o último modo aplicado pelo utilizador foi um **efeito de firmware**, volta a emitir o mesmo efeito com o novo brilho. No separador **Effect** (firmware), o envio ao dispositivo só ocorre **depois de o utilizador alterar** um controlo (efeito, tempo de ciclo, cor, direção, opções), com debounce ~200 ms; abrir a aba ou redimensionar a janela **não** reaplica o efeito. O botão **Apply** do rodapé só serve **Palette slot configuration** e **Per-key grid**; **Solid** aplica-se automaticamente (debounce ~200 ms) na respetiva aba. A sub-navegação do teclado na coluna do meio agrupa entradas em **Firmware**, **User-defined**, **Extra**, com cabeçalhos **não clicáveis** no estilo da barra lateral: **título + traço horizontal**. O combo de cor de paleta no firmware mostra **slot 1–7**, **#RRGGBB** e um **quadrante de cor**: usa o espelho de sessão quando existir; **sem entrada no espelho**, `paletteSlotR/G/B` devolve a **paleta por defeito do firmware** (a mesma que `restore_default_palette` / `_DEFAULT_PALETTE` no backend), na ordem dos slots 1–7. Controlos de tempo de ciclo / cor / direção / reactive / save ficam **desativados** quando o efeito selecionado não os usa (`effectSupports` + `EFFECT_KWARGS`). No conteúdo em scroll mantêm-se títulos como **Firmware (controlador)**, **Software (user)**, **Device · palette slots**, **Extra / tools**. **Animation file** e **Follow screen** são **abas separadas** no stack: na primeira, **Stop animation** junto de **Play**; na segunda, **Start following** e **Stop following**.
-- **Barra LED** ([`LedBarPage.qml`](src/app/ui/pages/LedBarPage.qml)): mesma ideia — secção **Device** com brilho 0–100 e `requestBrightnessFromUi` / debounce no [`LedBarBackend`](src/app/ui/adapters/led_bar_backend.py), re-aplicando o último modo conhecido ou o efeito atualmente escolhido no *shell*. Removido o botão “Set brightness + effect” do cabeçalho; o combo rápido do cabeçalho foi integrado à lógica do *shell* nos separadores existentes.
-
----
-
-## Resumo executivo
-
-| Aspeto | ITE 8291 (teclado) | ITE 8233 (barra LED) |
-|--------|--------------------|----------------------|
-| **Modo principal “firmware”** | Efeitos integrados (`breathing`, `wave`, …) com pacote de 6 bytes no report de efeito | Efeitos `static`, `breathing`, `wave`, `impact`, `raindrop` com paleta e parâmetros no report HID |
-| **Cor uniforme** | `set_color` (modo utilizador + envio por linhas) — RGB livre | `set_static_rgb` (uma cor na paleta + efeito `static`) |
-| **Cores por tecla / animação** | Grelha 6×21, DSL de animação, `set_key_colors` | Não suportado |
-| **Seguir ecrã** | Suportado (extra `[screen]` no projeto) | Não |
-| **Brilho** | 0–50: comando dedicado **e** byte no pacote de efeito | 0–100: guardado no driver Python e enviado no próximo `_send_effect` |
-| **“Paleta”** | **Slots 1–7** na memória do controlador + índice semântico no efeito (`red`…`purple`, `random`, `none`) | **Lista de até 9** cores RGB enviadas ao dispositivo; efeitos animados percorrem essa lista |
+Sources: the code in `src/avell_storm_rgb/` and `src/app/`, cross-checked with [ite8291r3-ctl](https://github.com/pobrn/ite8291r3-ctl) and the **ite8233-ledbar** `ledbar` script.
 
 ---
 
-## ITE 8291 — modelo mental
+## 🧭 Executive summary
 
-### Dois “caminhos” de iluminação
+| Aspect | ITE 8291 (keyboard) | ITE 8233 (LED bar) |
+|--------|---------------------|--------------------|
+| **Main "firmware" mode** | Built-in effects (`breathing`, `wave`, …), 6-byte effect packet | `static`, `breathing`, `wave`, `impact`, `raindrop` with palette + params in the HID report |
+| **Uniform colour** | `set_color` (user mode + row writes), free RGB | `set_static_rgb` (one palette colour + `static`) |
+| **Per-key / animation** | 6 × 21 grid, animation DSL, `set_key_colors` | Not supported |
+| **Follow screen** | Yes (extra `[screen]`) | No |
+| **Brightness** | 0–50: dedicated command **and** a byte in the effect packet | 0–100: kept in the Python driver, sent with the next `_send_effect` |
+| **"Palette"** | **Slots 1–7** in controller memory + a semantic index in the effect | **List of up to 9** RGB colours sent to the device |
 
-1. **Efeito de firmware** — `set_effect(payload)`: o controlador corre uma animação interna. O payload inclui `effect`, `speed`, `brightness`, `color`, byte de direção **ou** reatividade, e `save`.
-2. **Modo utilizador (per-key / cor sólida)** — `enable_user_mode` + envio de dados por **linha** (`set_color`, `set_key_colors`, animação DSL, follow-screen): o firmware deixa de ser a “fonte” da animação global e passa a mostrar cores definidas por software.
+## 🏗️ ITE 8291 — mental model
 
-**Na prática**, ao aplicar um efeito de firmware substitui-se o modo atual de animação integrada; ao aplicar sólido/per-key/follow entra-se no modo utilizador. O utilizador deve tratar estes como **modos que se substituem** no uso normal (o documento upstream também descreve efeitos vs. `monocolor` / `anim` de forma separada).
+### Two lighting paths
 
-### Brilho: dois mecanismos
+1. **Firmware effect.** `set_effect(payload)` makes the controller run an internal animation. The payload has `effect`, `speed`, `brightness`, `color`, a direction **or** reactive byte, and `save`.
+2. **User mode** (solid / per-key). `enable_user_mode` plus **row-by-row** data (`set_color`, `set_key_colors`, animation DSL, follow-screen). Software decides the colours.
 
-- **`SET_BRIGHTNESS`** (`keyboard brightness` / `set_brightness`): altera o brilho global do controlador (0–50).
-- **Byte de brilho dentro de `SET_EFFECT`**: cada chamada a `keyboard effect …` ou `applyEffect` envia um brilho no pacote; valores omitidos usam o **default 25** definido em `KEYBOARD_EFFECTS` (comportamento alinhado ao [README do ite8291r3-ctl](https://github.com/pobrn/ite8291r3-ctl): aplicar um efeito pode **redefinir** o brilho se não for passado explicitamente).
+> [!NOTE]
+> Treat them as **modes that replace each other**. Applying a firmware effect leaves user mode. Solid, per-key and follow-screen enter user mode.
 
-**Combinável?** Sim, no sentido de que pode primeiro ajustar com `keyboard brightness` e depois aplicar um efeito com `-b`; o efeito **pode** voltar a fixar outro valor. Na GUI, o slider na secção **Device** aplica-se em tempo real (ver “UI” acima); no separador **Effect** (firmware), cada alteração reenvia o pacote de efeito com o brilho atual (0–50) derivado do slider em **percentagem**.
+### Brightness: two mechanisms
 
-### “Cor” no efeito ≠ RGB livre
+- **`SET_BRIGHTNESS`** (`keyboard brightness` / `set_brightness`): global controller brightness (0–50).
+- **Brightness byte inside `SET_EFFECT`:** every effect call sends one. When it is omitted, the builder default **25** from `KEYBOARD_EFFECTS` is used.
 
-O campo `color` no pacote **não** é um triplete RGB. É um **índice** mapeado em `KEYBOARD_PALETTE_SLOT_COLORS` (`src/avell_storm_rgb/infrastructure/usb/ite8291_usb.py`):
+> [!WARNING]
+> **Applying an effect can reset brightness** if you don't pass `-b` (same as upstream). The GUI avoids this: in the **Effect** tab every change re-sends the packet with the slider's current brightness, and the **Device** slider re-sends the last effect (see [FLOWS § 4](FLOWS.md#-4--brightness-slider)).
 
-| Nome no CLI/GUI | Valor enviado | Significado no firmware |
-|-----------------|---------------|-------------------------|
-| `none` | 0 | Sem cor de slot (efeito pode ficar invisível — o upstream avisa para não usar `none` como cor principal) |
-| `red` … `purple` | 1–7 | **Referência ao slot N da paleta** guardada no teclado (não “vermelho Pantone” fixo): se alterar o slot 3 na paleta, `-c yellow` (slot 3 no mapa semântico padrão) passa a ser a cor desse slot. |
-| `random` | 8 | Uso “aleatório” / multi-cor da paleta conforme o efeito |
+### Effect "colour" ≠ free RGB
 
-Ou seja: **`keyboard palette set …`** (slots 1–7 com RGB) **define a tabela**; **`-c` / combo “Palette slot colour”** escolhe **qual entrada** o efeito usa (ou `random`). Isto replica a nota do ite8291r3-ctl: *os nomes podem enganar — `red` é a primeira cor da paleta no esquema padrão*.
+The `color` field is an **index** (`KEYBOARD_PALETTE_SLOT_COLORS` in `ite8291_usb.py`):
 
-### Direção vs reativo — mesmo byte, exclusivos por desenho
+| CLI / GUI name | Value sent | Meaning in firmware |
+|----------------|------------|---------------------|
+| `none` | 0 | No slot colour. The effect may be invisible (upstream warns against it) |
+| `red` … `purple` | 1–7 | **Reference to slot N** of the keyboard palette. Change slot 3 and `-c yellow` changes too |
+| `random` | 8 | "Random" / multi-colour use of the palette, depending on the effect |
 
-Em `ite8291_usb.py`, `effect_attrs.DIRECTION` e `effect_attrs.REACTIVE` têm o **mesmo índice (4)** no array do efeito: ou o byte significa direção, ou “reativo”, consoante o efeito.
+- **`keyboard palette set-slot …`** fills the table.
+- **`-c` / the "palette slot colour" combo** picks **which entry** the effect uses.
+- As upstream puts it: *the names can mislead — `red` is just the first palette colour in the default scheme.*
 
-- A **CLI** usa grupo mutuamente exclusivo: `--direction` **ou** `--reactive`.
-- A **GUI** mostra **sempre** o `ComboBox` de direção e o `CheckBox` “Reactive”; o `KeyboardBackend._effect_kwargs` **só inclui** o parâmetro que o efeito suporta — o outro é ignorado (o valor enviado fica o default do builder).
+### Direction vs reactive: same byte, exclusive by design
 
-### Matriz efeito × parâmetros (código deste repo)
+`effect_attrs.DIRECTION` and `effect_attrs.REACTIVE` share **index 4** of the effect array.
 
-Legenda: **sim** = enviado e usado pelo builder; **—** = não faz parte do efeito (GUI/CLI não devem assumir efeito visível).
+- **CLI:** mutually exclusive group, `--direction` **or** `--reactive`.
+- **GUI:** each control is **enabled only when the selected effect uses it** (`effectSupports`). `_effect_kwargs` sends only supported parameters.
 
-| Efeito | speed (0–10) | brightness (0–50) | color (índice slot) | direction | reactive | save |
-|--------|----------------|-------------------|---------------------|-----------|----------|------|
-| `breathing` | sim | sim | sim | — | — | sim |
-| `wave` | sim | sim | — | sim | — | sim |
-| `random` | sim | sim | sim | — | sim | sim |
-| `rainbow` | — | sim | — | — | — | sim |
-| `ripple` | sim | sim | sim | — | sim | sim |
-| `marquee` | sim | sim | — | — | — | sim |
-| `raindrop` | sim | sim | sim | — | — | sim |
-| `aurora` | sim | sim | sim | — | sim | sim |
-| `fireworks` | sim | sim | sim | — | sim | sim |
+### Effect × parameter matrix
 
-**Brilho:** qualquer efeito na tabela inclui `brightness` no pacote (incluindo `rainbow`). **Velocidade:** todos exceto `rainbow`. **Cor (slot):** todos com “sim” na coluna `color` — para efeitos sem `color`, o índice no hardware fica o default do builder (não há controlo útil na UI para isso além do brilho/`save`).
+**yes** = sent and used by the builder · **—** = not part of the effect.
 
-### Outras capacidades (teclado)
+| Effect | speed (0–10) | brightness (0–50) | color (slot) | direction | reactive | save |
+|--------|--------------|-------------------|--------------|-----------|----------|------|
+| `breathing` | yes | yes | yes | — | — | yes |
+| `wave` | yes | yes | — | yes | — | yes |
+| `random` | yes | yes | yes | — | yes | yes |
+| `rainbow` | — | yes | — | — | — | yes |
+| `ripple` | yes | yes | yes | — | yes | yes |
+| `marquee` | yes | yes | — | — | — | yes |
+| `raindrop` | yes | yes | yes | — | — | yes |
+| `aurora` | yes | yes | yes | — | yes | yes |
+| `fireworks` | yes | yes | yes | — | yes | yes |
 
-- **`keyboard power off` / `powerOnReplay`**: desliga; “power on” com replay restaura snapshot do último efeito quando disponível.
-- **`freeze`**: coloca `speed` a 11 no snapshot atual (hack experimental).
-- **`palette restore|random|set`**: só altera slots 1–7 na memória do teclado; **não** muda sozinho para um efeito novo.
-- **Sólido / grelha / animação / follow-screen**: ver secção “Traço UI ↔ backend”.
+- **Brightness:** every effect, including `rainbow`.
+- **Speed:** every effect except `rainbow`.
+- **Colour:** effects without it keep the builder's default index; the GUI only offers brightness and `save` for them.
 
----
+### Other keyboard capabilities
 
-## ITE 8233 — modelo mental
+- **`keyboard power off` / GUI `powerOnReplay`:** turns off; GUI power-on replays a snapshot of the last effect.
+- **`freeze`:** sets `speed` to 11 in the current effect (experimental hack).
+- **`palette restore | random | set-slot`:** only changes slots 1–7. It does **not** switch to a new effect by itself.
 
-### Paleta na barra ≠ palette slot do teclado
+## 🏗️ ITE 8233 — mental model
 
-- A barra mantém em software uma **`list[tuple[int,int,int]]`** (`self.palette`), até **`MAX_LED_BAR_PALETTE` = 9** (`ledbar_colors.py`).
-- `CMD_COLOR` envia cada cor para um índice de slot no protocolo da barra; **`_send_effect`** calcula `num_colors = len(palette)` se houver mais de uma cor, senão **1**.
-- **Presets** (`rainbow`, `fire`, …) ou lista `r,g,b,...` alimentam essa lista antes de `apply_visual_effect`.
+### LED bar palette ≠ keyboard palette slot
 
-### Efeitos e códigos
+- The bar keeps a software **`list[tuple[int,int,int]]`** (`self.palette`), up to **`MAX_LED_BAR_PALETTE = 9`**.
+- `CMD_COLOR` sends each colour to a slot index. `_send_effect` sends `num_colors = len(palette)` if there is more than one colour, otherwise **1**.
+- **Presets** (`rainbow`, `fire`, `ice`, `forest`) or an `r,g,b,…` list fill the list before `apply_visual_effect`.
 
-| Nome | Código (hex) |
-|------|----------------|
-| `static` | 0x01 |
-| `breathing` | 0x02 |
-| `wave` | 0x03 |
-| `impact` | 0x04 |
-| `raindrop` | 0x06 |
+### Effects and codes
 
-### Brilho e velocidade
+| Name | Code |
+|------|------|
+| `static` | `0x01` |
+| `breathing` | `0x02` |
+| `wave` | `0x03` |
+| `impact` | `0x04` |
+| `raindrop` | `0x06` |
 
-- `set_brightness_level` / `set_motion_speed` apenas atualizam **`self.brightness`** e **`self.speed`** no objeto Python.
-- O hardware só recebe novos valores quando **`apply_visual_effect`** (ou fluxo equivalente) chama **`_send_effect`**, que inclui `self.speed`, `self.brightness` e o código de efeito.
+### Brightness and speed
 
-**Combinável com qualquer efeito?** Em termos de **API**, sim: qualquer efeito pode ser re-aplicado depois de mudar brilho/velocidade (é o padrão `setBrightnessWithEffect`, `led-bar brightness … --with-effect`, etc.). **Na perceção visual**, para **`static`** brilho altera o byte enviado (pode ser notável); a **velocidade** também é enviada no mesmo report — convém **validar no hardware** se altera algo visível em `static` ou é essencialmente irrelevante.
+- `set_brightness_level` / `set_motion_speed` only update **`self.brightness`** / **`self.speed`** in Python.
+- The hardware sees them only when **`apply_visual_effect`** calls **`_send_effect`**.
 
-### Fluxos típicos
+> [!TIP]
+> **Works with any effect?** API-wise, yes: re-apply any effect after changing brightness or speed. **Visually**, brightness clearly changes `static`. Whether speed changes anything in `static` still needs **hardware validation**.
 
-- **Cor única:** `set_static_rgb` → paleta `[uma cor]` + efeito `static`.
-- **Paleta + animação:** `set_palette_colors` + `apply_visual_effect(nome)`.
-- **Só mudar efeito:** reutiliza paleta e últimos brilho/velocidade em memória no objeto `Ite8233UsbDevice`.
+### Typical flows
 
----
+- **Single colour:** `set_static_rgb` → palette `[one colour]` + `static`.
+- **Palette + animation:** `set_palette_colors` + `apply_visual_effect(name)`.
+- **Change effect only:** reuses the palette and the last brightness / speed kept on the `Ite8233UsbDevice` object.
 
-## Exclusividade e transições
+## ⚠️ Exclusivity and transitions
 
-### Teclado (8291)
+| Keyboard situation | Behaviour |
+|--------------------|-----------|
+| `power off` | Lights off; the GUI keeps a snapshot for replay |
+| `set_effect` vs user mode | The transition replaces the active visual "engine" |
+| `--direction` vs `--reactive` (CLI) | **Exclusive** (same protocol byte) |
+| Direction / reactive (GUI) | Only the one the effect supports is enabled |
+| `freeze` | One-off change to the effect array (speed 11) |
 
-| Situação | Comportamento |
-|----------|----------------|
-| `power off` | Iluminação apagada; outros estados podem ser guardados para replay conforme implementação do backend |
-| `set_effect` vs modo utilizador | Transição substitui o “motor” visual dominante |
-| `--direction` vs `--reactive` na CLI | **Exclusivos** (mesmo byte no protocolo) |
-| Direção + reactive na GUI | **Ambos visíveis**; só um tem efeito por tipo de efeito |
-| `freeze` | Alteração pontual do array de efeito (velocidade 11) |
+| LED bar situation | Behaviour |
+|-------------------|-----------|
+| `power off` | Power-off sequence; animation stops |
+| `power on` | Init sequence; the GUI's `powerOnReplay` repeats the last mode |
 
-### Barra (8233)
+## 🔁 UI ↔ backend trace
 
-| Situação | Comportamento |
-|----------|----------------|
-| `power off` | Sequência de desligar; apaga animação |
-| `power on` | Inicialização; a GUI pode chamar `powerOnReplay` para repetir último modo |
+### Keyboard (`KeyboardPage.qml` + `main.qml`)
 
----
+The sub-navigation (`keyboardSubNavIndex` 0…6) drives the inner `StackLayout`. It is grouped under **Firmware**, **User-defined** and **Extra** headers (title + trailing line).
 
-## Traço UI ↔ backend
+| # | Tab | "Apply" button? | Main backend call |
+|---|-----|-----------------|-------------------|
+| 0 | Effect | No — auto, ~200 ms debounce after a change | `applyEffect(…)` |
+| 1 | Palette slot configuration | Yes | `setPaletteSlotRgb(slot, r, g, b)` — writes the slot only |
+| 2 | Solid color | No — auto, ~200 ms debounce | `setSolidNamed` / `setSolidRgb` |
+| 3 | Per-key grid | Yes | `applyKeyGrid(true)` |
+| 4 | Animation file | No | `playAnimationFile` / `stopFollowOrAnimation` |
+| 5 | Follow screen | No | `startFollowScreen` / `stopFollowOrAnimation` |
+| 6 | Tools | No | `demoTestPattern`, `freezeAnimation` (immediate) |
 
-### Teclado (`KeyboardPage.qml` + `main.qml`)
+- **Device block (brightness):** hidden on tabs **1** and **6**. Shown as **0–100 %**, converted to 0–50; debounced through `requestBrightnessFromUi`.
+- **Effect tab:** opening the tab or resizing the window **never** re-sends. Only a user change does.
+- **Firmware colour combo:** shows slot 1–7, `#RRGGBB` and a swatch. It uses the session mirror; without a mirror entry, `paletteSlotR/G/B` returns the **firmware default palette**.
+- **Per-key:** a real keyboard layout (labels, variable widths). Click = one key; drag = batch. Each key has a `keyId`; `per_key_grid.py` maps `keyId → (row, col)`.
+- **Row mapping:** device row 0 is the **bottom**. Per-key from the GUI goes through `color_map_ui_to_device`. **Animation DSL and follow-screen keep device coordinates** for compatibility.
 
-O separador lateral (`keyboardSubNavIndex` 0…6) corresponde ao `StackLayout` interno. Na shell, a lista está **agrupada em secções** (Firmware, User-defined, Extra) com **título + traço horizontal** como na barra lateral principal; os índices 0…6 são os mesmos.
+### LED bar (`LedBarPage.qml`)
 
-| Índice | Título (traduzível na app) | Botão “Apply” | Ação principal ao aplicar |
-|--------|----------------------------|---------------|---------------------------|
-| 0 | Effect (firmware) | Não (auto com debounce ~200 ms ao editar) | `KeyboardBackend.applyEffect(…)` |
-| 1 | Palette slot configuration | Sim | `setPaletteSlotRgb(slot, r, g, b)` — **só** grava RGB no slot do teclado |
-| 2 | Solid color | Não (auto com debounce ~200 ms na aba) | `setSolidNamed` ou `setSolidRgb` |
-| 3 | Keyboard layout (per-key) | Sim | `applyKeyGrid(true)` |
-| 4 | Animation file | Não | `playAnimationFile` / `stopFollowOrAnimation` (animação) |
-| 5 | Follow screen | Não | `startFollowScreen` / `stopFollowOrAnimation` |
-| 6 | Tools | Não | `demoTestPattern`, `freezeAnimation` (ações imediatas) |
-
-**Bloco Device (brilho)** no topo do scroll do teclado: **oculto** nas abas **Palette slot configuration** e **Tools** (índices 1 e 6); visível nas restantes.
-
-**Per-key semântico na GUI:** a aba mostra um **layout de teclado com teclas reais** (com labels e largura variável), não só uma grelha numérica. O utilizador pode clicar numa tecla para cor individual e usar arraste para seleção em lote. Internamente, cada tecla usa `keyId` e o backend traduz `keyId -> (row,col)` em `per_key_grid.py` antes de aplicar `set_key_colors`.
-
-**Mapeamento para firmware:** no protocolo USB, o índice de linha do `ite8291r3-ctl` / `set_key_colors` tem **linha 0 na base** (como no `screen_mode` upstream, `getpixel((col, 5 - row))`). Por isso, ao aplicar per-key da GUI, o backend usa `color_map_ui_to_device` para inverter linhas. **Animação DSL** (`pos row col …`) e **follow-screen** mantêm coordenadas numéricas no **espaço do dispositivo** por compatibilidade com scripts e referências existentes.
-
-**Controlos do separador 0 (efeito firmware) sempre visíveis:** velocidade, combo “cor da paleta”, direção, reactive, save. O Python **filtra** com `EFFECT_KWARGS`; para muitos efeitos, **direção ou reactive não fazem nada**, e para `rainbow` **velocidade e cor de slot** não entram no pacote.
-
-**Lacuna de UX/documentação:** o tooltip da direção na UI menciona *marquee*, mas **`marquee` não envia direção** no protocolo deste repo (alinha à matriz upstream: direção “—” para marquee). O utilizador pode achar que a direção afeta `marquee`, mas o valor é ignorado.
-
-### Barra (`LedBarPage.qml`)
-
-| Índice | Título | “Apply” / ação |
-|--------|--------|----------------|
+| # | Tab | Action |
+|---|-----|--------|
 | 0 | Color (named / hex) | `setColorFromSpec` |
 | 1 | Preset + effect | `applyPalette(spec, effect)` |
 | 2 | Effect only | `applyEffect` |
 | 3 | Brightness & motion | `applyBrightnessSpeedEffect` |
 
-O slider de brilho no topo pode ser usado com o botão “Set brightness + effect” (`setBrightnessWithEffect`) sem passar pelo Apply do separador.
+- **Device block:** a 0–100 brightness slider → `requestBrightnessFromUi(value, selectedEffect)` (debounced). It re-applies the last known mode, or the effect chosen in the shell.
 
----
+## 🛠️ Debugging the Firmware tab
 
-## Referência rápida CLI (`avell-storm-rgb`)
+1. Export `AVELL_DEBUG_FIRMWARE_UI=1` (or `true` / `yes` / `on`) before starting the app.
+2. **Python stderr:** each `KeyboardBackend.applyEffect` prints one line with its parameters.
+3. **Qt console** (`console.log`): `requestFirmwareEffectApply`, `pushFirmwareEffectToDevice`, debounce timer fires.
+4. Every **1 s** on the Firmware tab you get a summary: `scrollBodyWidth+`, `paletteMirror+`, `req+`, `push+`.
 
-Comandos úteis para validar o comportamento descrito (com dispositivo ligado e permissões USB):
+> [!TIP]
+> If `scrollBodyWidth+` climbs into the hundreds while resizing, there is layout churn. The `ScrollView` uses a **fixed right gutter** for the scrollbar to prevent width ↔ reflow oscillation.
+
+## 🛠️ CLI quick reference
 
 ```bash
-# Teclado — efeito com parâmetros
-uv run avell-storm-rgb keyboard effect wave -s 3 -b 40 -d up
-
-# Teclado — matriz de exclusão direção vs reactive (reactive só em efeitos que suportam)
-uv run avell-storm-rgb keyboard effect aurora -r -s 2 -c red
-
-# Teclado — paleta (slots 1–7) e depois efeito que usa “cor”
-uv run avell-storm-rgb keyboard palette set 2 255,128,0
-uv run avell-storm-rgb keyboard effect breathing -c orange
-
-# Teclado — inspeção
+uv run avell-storm-rgb keyboard effect wave -s 3 -b 40 -d up        # effect with params
+uv run avell-storm-rgb keyboard effect aurora -r -s 2 -c red        # reactive (no direction)
+uv run avell-storm-rgb keyboard palette set-slot 2 255,128,0        # slot 2 = "orange"
+uv run avell-storm-rgb keyboard effect breathing -c orange          # uses slot 2
 uv run avell-storm-rgb keyboard inspect --fw-version --brightness --power
-
-# Barra — paleta + efeito
 uv run avell-storm-rgb led-bar palette rainbow --with-effect wave
-
-# Barra — brilho e re-aplicar efeito
 uv run avell-storm-rgb led-bar brightness 80 --with-effect breathing
 ```
 
----
+## 🛠️ Hardware validation checklist
 
-## Checklist de validação no hardware
+1. **Keyboard `rainbow`:** change speed and colour → only **brightness** (and `save`) should change anything.
+2. **Keyboard `wave`:** switch direction. Reactive is disabled in the GUI for `wave`.
+3. **Keyboard `random` / `ripple`:** enable reactive. Combining it with direction in the CLI must be rejected by argparse.
+4. **Keyboard palette:** `palette set-slot 1 255,0,0`, then compare `-c red` vs `-c orange` after changing only slot 1.
+5. **LED bar `static`:** change only speed at fixed brightness. Does the static animation change?
+6. **LED bar order:** `led-bar brightness` **always** re-applies `--with-effect` here (old scripts didn't send brightness alone).
 
-1. **Teclado — `rainbow`:** mudar velocidade e cor no separador firmware; confirmar que **só o brilho** (e `save`) altera o resultado.
-2. **Teclado — `wave`:** alternar direção; ativar “Reactive” e confirmar que **não** há reatividade (valor ignorado).
-3. **Teclado — `random` / `ripple`:** ativar reactive; tentar combinar com direção na CLI (deve ser rejeitado pelo argparse).
-4. **Teclado — paleta:** `palette set 1` para vermelho puro; efeito com `-c red` vs `-c orange` após mudar só o slot 1.
-5. **Barra — `static`:** mudar só velocidade com brilho fixo; notar se a animação “estática” muda.
-6. **Barra — ordem:** `brightness` sem re-aplicar efeito na CLI antiga não enviaria ao HW — neste projeto **`led-bar brightness` sempre re-aplica** `--with-effect`.
+## 🧭 Main files
 
----
-
-## Ficheiros principais no repositório
-
-| Tópico | Caminho |
-|--------|---------|
-| Protocolo e efeitos 8291 | `src/avell_storm_rgb/infrastructure/usb/ite8291_usb.py` |
-| Filtro de kwargs na GUI | `src/app/ui/adapters/keyboard_backend.py` (`EFFECT_KWARGS`, `_effect_kwargs`) |
-| UI teclado | `src/app/ui/pages/KeyboardPage.qml`, `src/app/ui/main.qml` |
-| Protocolo 8233 | `src/avell_storm_rgb/infrastructure/usb/ite8233_usb.py` |
-| Cores / paletas barra | `src/avell_storm_rgb/domain/ledbar_colors.py` |
-| UI barra | `src/app/ui/pages/LedBarPage.qml`, `src/app/ui/adapters/led_bar_backend.py` |
+| Topic | Path |
+|-------|------|
+| 8291 protocol and effects | `src/avell_storm_rgb/infrastructure/usb/ite8291_usb.py` |
+| GUI kwargs filter | `src/app/ui/adapters/keyboard_backend.py` (`EFFECT_KWARGS`, `_effect_kwargs`) |
+| Keyboard UI | `src/app/ui/pages/KeyboardPage.qml`, `src/app/ui/main.qml` |
+| 8233 protocol | `src/avell_storm_rgb/infrastructure/usb/ite8233_usb.py` |
+| LED bar colours / palettes | `src/avell_storm_rgb/domain/ledbar_colors.py` |
+| LED bar UI | `src/app/ui/pages/LedBarPage.qml`, `src/app/ui/adapters/led_bar_backend.py` |
 | CLI | `src/avell_storm_rgb/adapters/cli/main.py` |
 
----
+## 🧭 Local upstream copies (optional)
 
-## Upstream local (análise cruzada)
+- `/home/jilles/git/ite8291r3-ctl/`: same effect matrix and notes on `color` / palette (README, *Effect property support matrix*).
+- `/home/jilles/git/ite8233-ledbar/ledbar`: same effect codes, palette, brightness and speed, with implicit re-apply.
 
-- **`/home/jilles/git/ite8291r3-ctl/`** — mesma matriz de efeitos e notas sobre `color`/palette; secção *Effect property support matrix* no README.
-- **`/home/jilles/git/ite8233-ledbar/ledbar`** — mesmos códigos de efeito, paleta, brilho e velocidade com re-aplicação implícita nos comandos do script.
-
-Estes caminhos são opcionais no teu sistema; servem para comparar textos e comportamento quando o código aqui foi portado.
+These paths exist only on the maintainer's machine. Use them to compare behaviour with the ported code.
