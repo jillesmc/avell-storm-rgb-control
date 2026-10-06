@@ -58,9 +58,12 @@ SUBSYSTEM=="usb", ATTR{idVendor}=="048d", ATTR{idProduct}=="7001", MODE="0666"
 | `test_cli_help.py` | CLI parser builds and `--help` works |
 | `test_screen_follow_frame.py` | Frame → 16 × 6 colour map (needs Pillow) |
 | `test_usb_worker.py` | Worker signals, busy / no-busy, failures |
-| `test_keyboard_backend_power_replay.py`, `test_led_bar_backend_power_replay.py` | Backends with fake drivers |
+| `test_device_state.py`, `test_device_facade_usb_id.py` | Saved state: store, validation, restore; open by USB id |
+| `test_keyboard_backend_light.py`, `test_led_bar_backend_light.py` | Backends with fake drivers: saved looks, light switch |
 | `test_keyboard_effect_supports.py` | `effectSupports` matrix |
-| `test_app_facade_autoconnect.py` | Auto-connect rules, `QSettings` |
+| `test_app_facade_memory.py`, `test_app_restore_integration.py` | Remember / forget, startup restore, migration (real worker, fake USB) |
+| `test_cli_state.py` | `state show` / `state restore` transcripts |
+| `test_gui_remembered_devices.py` | Sidebar entries, light switch, unavailable page |
 | `test_gui_smoke.py`, `test_gui_pages.py`, `test_gui_shell.py` | QML loads; `objectName` contracts |
 
 - GUI tests run **offscreen** (`QT_QPA_PLATFORM=offscreen`, set in `tests/gui_helpers.py`).
@@ -87,8 +90,7 @@ SUBSYSTEM=="usb", ATTR{idVendor}=="048d", ATTR{idProduct}=="7001", MODE="0666"
 ### Add a keyboard firmware effect
 
 1. Add a builder to `KEYBOARD_EFFECTS` in `src/avell_storm_rgb/infrastructure/usb/ite8291_usb.py:102` (effect id + supported parameters + defaults).
-2. Add the **same parameter set** to `EFFECT_KWARGS` in `src/app/ui/adapters/keyboard_backend.py:52`.
-3. Extend `tests/test_keyboard_effect_supports.py`.
+2. Extend `tests/test_keyboard_effect_supports.py`. The supported-parameter table (`KEYBOARD_EFFECT_PARAMS`) is derived from the builder.
 4. Update [FEATURE_MATRIX](FEATURE_MATRIX.md) and [DEVICE_FEATURES_DEEP_DIVE](DEVICE_FEATURES_DEEP_DIVE.md) (both languages).
 
 The CLI `choices` and the GUI list (`App.keyboardEffectNames`) pick it up automatically.
@@ -110,8 +112,9 @@ The CLI `choices` and the GUI list (`App.keyboardEffectNames`) pick it up automa
 1. In the backend (`keyboard_backend.py` / `led_bar_backend.py`), add a `@Slot` that clamps its inputs and wraps the USB work in `def task():`.
 2. Call `self._worker.submit(task)`. Use `show_busy=False` **only** for long tasks that the user can stop.
 3. Return results through a `Signal`. Use a `QueuedConnection` if you mutate backend state from the task.
-4. Call it from QML as `App.keyboard.<slot>(...)`. **Never** touch USB from QML.
-5. Add a backend test with a fake driver (see the `*_power_replay` tests).
+4. **If it applies a look**, emit `persistUpdate` **after** the driver call succeeded, so it becomes the saved look. Never write `state.json` yourself.
+5. Call it from QML as `App.keyboard.<slot>(...)`. **Never** touch USB from QML.
+6. Add a backend test with the fakes in `tests/backend_fakes.py` (see `test_*_backend_light.py`).
 
 ### Add a QML page or tab
 
@@ -130,5 +133,6 @@ The CLI `choices` and the GUI list (`App.keyboardEffectNames`) pick it up automa
 - **Device not found** → check udev rules, `lsusb | grep 048d`, and that the keyboard reports rev `0.03`.
 - **GUI looks like plain Qt** → install `qqc2-breeze-style`; check `/usr/lib/qt6/qml/org/kde/desktop`.
 - **QML fails to load** → install Kirigami 6; the app prints a hint and exits 1.
+- **Lights not restored** → `avell-storm-rgb state show`. A broken file is moved to `state.json.invalid` and reported on the Devices page.
 - **X11 `BadMatch`** in follow-screen → XWayland or a region outside the screen.
 - **GUI seems frozen on USB** → a follow-screen or looping animation is probably running. Press **Stop**.

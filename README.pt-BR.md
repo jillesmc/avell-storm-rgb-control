@@ -88,6 +88,14 @@ avell-storm-rgb led-bar speed 5 --with-effect breathing       # 1–10
 avell-storm-rgb led-bar inspect
 ```
 
+**Estado salvo** (gravado pela GUI; a CLI só lê)
+
+```bash
+avell-storm-rgb state show [--json]                       # o que a GUI vai restaurar
+avell-storm-rgb state restore [--kind keyboard|led-bar]    # reaplica sem abrir a GUI
+avell-storm-rgb state restore --no-animation              # pula uma animação forever salva
+```
+
 ## 🛠️ Usar a GUI
 
 ```bash
@@ -97,10 +105,12 @@ make sync-gui && make gui
 
 | Funcionalidade | Notas |
 |----------------|-------|
-| **Auto-connect** | Depois da varredura inicial, conecta o primeiro teclado e a primeira barra (ligado por padrão; **Settings**) |
-| **Abas de dispositivo** | **Keyboard** / **LED bar** só aparecem enquanto aquele dispositivo está conectado |
+| **Dispositivos lembrados** | **Devices → Connect** lembra o dispositivo: ele aparece na barra lateral e reconecta toda vez que o app abre. **Disconnect** esquece |
+| **Visual ao abrir** | O último visual aplicado (efeito, cor, grade por tecla, animação, preset da barra…) e o estado ligado/desligado da luz voltam quando o app abre. Salvo em `~/.config/avell-storm-rgb/state.json` |
+| **Switch de luz** | O switch ao lado de **Keyboard** / **LED bar** na barra lateral liga/desliga aquela luz |
+| **Dispositivo indisponível** | Um dispositivo lembrado que está desconectado aparece como **Unavailable**, com **Retry** e **Forget** |
 | **Fechar para a bandeja** | Fechar esconde a janela (opção em **Settings**). Saia pelo menu da bandeja ou por **Settings → Quit application** |
-| **Seguir a tela** | Roda sem o véu de ocupado. O **Stop** encerra a captura e apaga o indicador do portal. (Uma animação *forever* hoje mostra o véu — [dívida nº 7](docs/ARCHITECTURE.pt-BR.md)) |
+| **Seguir a tela / animações** | Rodam sem o véu de ocupado. O **Stop** encerra (e apaga o indicador do portal) |
 | **Logs** | `--verbose` / `--debug`, ou `AVELL_STORM_RGB_LOG=debug` → DEBUG + tracebacks completos no stderr |
 
 ### ⚠️ A GUI precisa do Kirigami da distro

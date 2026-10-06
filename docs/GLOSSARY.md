@@ -65,11 +65,16 @@
 | **Debounce** | 200 ms timer that merges rapid slider/control changes into one USB call | `QTimer` in backends, `Timer` in QML |
 | **Brightness target** | `GLOBAL_ONLY` or `FIRMWARE_REAPPLY`: whether brightness also re-sends the effect | `_BrightnessTarget` |
 | **Palette mirror** | Session copy of slot colours the GUI wrote (the device can't be read) | `_palette_mirror` |
-| **Effect snapshot** | Effect bytes saved at power off, replayed at power on | `_last_effect_snapshot` |
-| **Replay record** | LED bar's last action (`color`, `palette`, `effect`, `tune*`) for power-on replay | `_last_replay` |
+| **Effect snapshot** | Keyboard effect bytes read when the light is switched off; used to switch on when nothing is saved | `_last_effect_snapshot` |
 | **Epoch** | Counter bumped to force QML to re-read (`deviceConnectionEpoch`, `keyGridEpoch`) | facade / backend |
 | **Close to tray** | Closing the window hides it; quit from the tray | `ui/closeToTray` |
-| **Auto-connect** | Connect the first keyboard and LED bar after the startup scan | `ui/autoConnectOnStartup` |
+| **Remembered device** | A device connected once on **Devices**; it gets a sidebar entry and reconnects at startup. Identified by USB id (`048d:ce00`) | `AppFacade`, `state.json` |
+| **Saved look** | The last look applied successfully to a device (effect, colour, per-key grid, animation, LED bar parameters); restored at startup | `device_state.py` |
+| **Light state** | `on` / `off` per device, set by the sidebar switch; saved and restored | `setLightOn`, `power` field |
+| **Unavailable** | A remembered device that is not found or fails to open; its page offers Retry / Forget | `*UnavailableReason` |
+| **`state.json`** | Saved device state in `~/.config/avell-storm-rgb/`; written only by the GUI, read by `state show/restore` | `DeviceStateStore` |
+| **`persistUpdate`** | Backend signal emitted after a successful apply; the facade merges it into `state.json` | backends |
+| **Auto-connect (legacy)** | Old setting `ui/autoConnectOnStartup`; migrated once into remembered devices, then deleted | `LEGACY_AUTO_CONNECT_KEY` |
 
 ## Tooling
 

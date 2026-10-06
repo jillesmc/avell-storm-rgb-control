@@ -28,7 +28,7 @@ flowchart LR
 ```
 
 - **No kernel driver, no daemon.** The program talks to the chips directly with USB control transfers.
-- **Stateless on disk.** The only things saved are two GUI preferences (see *State and persistence* in [ARCHITECTURE](ARCHITECTURE.md)).
+- **Remembers your lights.** The GUI saves the devices you connected, their light state and their last look in `~/.config/avell-storm-rgb/state.json`, and restores them when it opens (see *State and persistence* in [ARCHITECTURE](ARCHITECTURE.md)).
 
 ## 🧭 The two devices
 
@@ -49,8 +49,7 @@ flowchart LR
 | Feature | CLI | GUI |
 |---------|-----|-----|
 | List devices | `device list` | **Devices** page |
-| Keyboard power off | `keyboard power off` | ✅ |
-| Keyboard power on (replays last effect) | — | ✅ GUI only |
+| Keyboard light on / off | `keyboard power off` (off only) | Sidebar **switch** (on re-applies the saved look) |
 | Keyboard brightness | `keyboard brightness N` | Slider (debounced) |
 | Firmware effect | `keyboard effect NAME …` | **Effect** tab (auto-applies) |
 | Palette slots 1–7 | `keyboard palette restore \| random \| set-slot` | **Palette slot configuration** tab |
@@ -60,9 +59,10 @@ flowchart LR
 | Follow screen | `keyboard follow-screen` | **Follow screen** tab |
 | Test pattern / freeze | `demo-test-pattern`, `freeze-animation` | **Tools** tab |
 | Inspect (FW, brightness, on/off) | `keyboard inspect` | Shown on the page |
-| LED bar power | `led-bar power on \| off` | ✅ (+ replays last mode on power on) |
+| LED bar light on / off | `led-bar power on \| off` | Sidebar **switch** |
 | LED bar colour, palette, effect, brightness, speed | `led-bar color \| palette \| effect \| brightness \| speed` | 4 tabs |
-| Tray icon, close-to-tray, auto-connect | — | ✅ GUI only |
+| Remember devices and restore their last look at startup | `state show` · `state restore` | ✅ automatic |
+| Tray icon, close to tray | — | ✅ GUI only |
 
 ## 🧭 GUI tour
 
@@ -77,8 +77,9 @@ flowchart LR
     foot --> about["About"]
 ```
 
-- **Devices:** USB scan, connect / disconnect.
-- **Keyboard** and **LED bar** have an on/off **switch** in the sidebar (connect / disconnect).
+- **Devices:** USB scan. **Connect remembers** a device; **Disconnect forgets** it (its saved look is kept).
+- Only **remembered** devices appear in the sidebar. Their **switch** turns the **light** on/off.
+- A remembered device that is unplugged shows **Unavailable**; its page offers **Retry** and **Forget**.
 
 | Keyboard tabs | | LED bar tabs |
 |---|---|---|
@@ -86,7 +87,7 @@ flowchart LR
 | **User-defined:** Solid color · Per-key grid · Animation file · Follow screen | | Preset + effect |
 | **Extra:** Tools | | Effect only · Brightness & motion |
 
-- **Settings:** close to tray, auto-connect on startup, verbose USB for keyboard, quit.
+- **Settings:** close to tray, verbose USB for keyboard, quit.
 - A translucent **"USB operation in progress…"** overlay appears while a USB task runs.
 
 ## 🛠️ Optional parts

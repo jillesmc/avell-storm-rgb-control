@@ -65,11 +65,16 @@
 | **Debounce** | Timer de 200 ms que junta mudanças rápidas de slider/controle numa chamada USB | `QTimer` nos backends, `Timer` no QML |
 | **Brightness target** | `GLOBAL_ONLY` ou `FIRMWARE_REAPPLY`: se o brilho também reenvia o efeito | `_BrightnessTarget` |
 | **Palette mirror** | Cópia de sessão das cores de slot que a GUI escreveu (o dispositivo não pode ser lido) | `_palette_mirror` |
-| **Effect snapshot** | Bytes do efeito salvos ao desligar, repetidos ao ligar | `_last_effect_snapshot` |
-| **Replay record** | Última ação da barra de LED (`color`, `palette`, `effect`, `tune*`) para repetir ao ligar | `_last_replay` |
+| **Effect snapshot** | Bytes do efeito do teclado lidos ao apagar a luz; usados para acender quando nada está salvo | `_last_effect_snapshot` |
 | **Epoch** | Contador incrementado para forçar o QML a reler (`deviceConnectionEpoch`, `keyGridEpoch`) | facade / backend |
 | **Close to tray** | Fechar a janela só esconde; sair pela bandeja | `ui/closeToTray` |
-| **Auto-connect** | Conecta o primeiro teclado e a primeira barra após a varredura inicial | `ui/autoConnectOnStartup` |
+| **Remembered device** | Dispositivo conectado uma vez em **Devices**; ganha entrada na barra lateral e reconecta ao abrir. Identificado pelo USB id (`048d:ce00`) | `AppFacade`, `state.json` |
+| **Saved look** | O último visual aplicado com sucesso a um dispositivo (efeito, cor, grade por tecla, animação, parâmetros da barra); restaurado ao abrir | `device_state.py` |
+| **Light state** | `on` / `off` por dispositivo, definido pelo switch da barra lateral; salvo e restaurado | `setLightOn`, campo `power` |
+| **Unavailable** | Dispositivo lembrado que não foi encontrado ou falhou ao abrir; a página dele oferece Retry / Forget | `*UnavailableReason` |
+| **`state.json`** | Estado salvo dos dispositivos em `~/.config/avell-storm-rgb/`; escrito só pela GUI, lido por `state show/restore` | `DeviceStateStore` |
+| **`persistUpdate`** | Sinal do backend emitido após uma aplicação bem-sucedida; a facade junta no `state.json` | backends |
+| **Auto-connect (legado)** | Antiga opção `ui/autoConnectOnStartup`; migrada uma vez para dispositivos lembrados e depois apagada | `LEGACY_AUTO_CONNECT_KEY` |
 
 ## Ferramentas
 

@@ -7,7 +7,7 @@
 > **TL;DR**
 > - **Teclado (8291):** efeitos de firmware **ou** modo usuário (cores por software). Um substitui o outro. A "cor" de um efeito é um **índice de slot da paleta**, não RGB.
 > - **Barra de LED (8233):** brilho e velocidade só são enviados **dentro de um efeito**, então mudar qualquer um deles sempre reaplica um efeito.
-> - A GUI **desabilita** os controles que o efeito não usa (`effectSupports`), e o backend **filtra** os parâmetros (`EFFECT_KWARGS`).
+> - A GUI **desabilita** os controles que o efeito não usa (`effectSupports`), e o backend **filtra** os parâmetros (`KEYBOARD_EFFECT_PARAMS`).
 
 **Leia isto se…** você precisa saber qual parâmetro funciona com qual efeito, o que exclui o quê, e como a UI se liga ao backend.
 
@@ -63,7 +63,7 @@ O campo `color` é um **índice** (`KEYBOARD_PALETTE_SLOT_COLORS` em `ite8291_us
 `effect_attrs.DIRECTION` e `effect_attrs.REACTIVE` dividem o **índice 4** do array do efeito.
 
 - **CLI:** grupo mutuamente exclusivo, `--direction` **ou** `--reactive`.
-- **GUI:** cada controle só fica **habilitado quando o efeito selecionado usa aquele parâmetro** (`effectSupports`). `_effect_kwargs` envia só os parâmetros suportados.
+- **GUI:** cada controle só fica **habilitado quando o efeito selecionado usa aquele parâmetro** (`effectSupports`). `keyboard_effect_kwargs` envia só os parâmetros suportados.
 
 ### Matriz efeito × parâmetro
 
@@ -87,7 +87,7 @@ O campo `color` é um **índice** (`KEYBOARD_PALETTE_SLOT_COLORS` em `ite8291_us
 
 ### Outras capacidades do teclado
 
-- **`keyboard power off` / `powerOnReplay` da GUI:** desliga; ligar pela GUI repete um snapshot do último efeito.
+- **`keyboard power off` / switch de luz da GUI:** desliga. Ligar pela GUI reaplica o **visual salvo** (ou o efeito que estava antes de desligar).
 - **`freeze`:** põe `speed` em 11 no efeito atual (gambiarra experimental).
 - **`palette restore | random | set-slot`:** só muda os slots 1–7. **Não** troca de efeito sozinho.
 
@@ -127,7 +127,7 @@ O campo `color` é um **índice** (`KEYBOARD_PALETTE_SLOT_COLORS` em `ite8291_us
 
 | Situação no teclado | Comportamento |
 |---------------------|---------------|
-| `power off` | Luzes apagadas; a GUI guarda um snapshot para replay |
+| Switch de luz desligado | Luzes apagadas; o estado da luz é salvo e restaurado ao abrir |
 | `set_effect` vs modo usuário | A transição substitui o "motor" visual ativo |
 | `--direction` vs `--reactive` (CLI) | **Exclusivos** (mesmo byte do protocolo) |
 | Direção / reativo (GUI) | Só o que o efeito suporta fica habilitado |
@@ -135,8 +135,8 @@ O campo `color` é um **índice** (`KEYBOARD_PALETTE_SLOT_COLORS` em `ite8291_us
 
 | Situação na barra | Comportamento |
 |-------------------|---------------|
-| `power off` | Sequência de desligar; a animação para |
-| `power on` | Sequência de inicialização; o `powerOnReplay` da GUI repete o último modo |
+| Switch de luz desligado | Sequência de desligar; a animação para; o estado da luz é salvo |
+| Switch de luz ligado | Sequência de inicialização; depois a GUI reaplica o visual salvo |
 
 ## 🔁 Rastro UI ↔ backend
 
@@ -207,7 +207,8 @@ uv run avell-storm-rgb led-bar brightness 80 --with-effect breathing
 | Tema | Caminho |
 |------|---------|
 | Protocolo e efeitos do 8291 | `src/avell_storm_rgb/infrastructure/usb/ite8291_usb.py` |
-| Filtro de kwargs na GUI | `src/app/ui/adapters/keyboard_backend.py` (`EFFECT_KWARGS`, `_effect_kwargs`) |
+| Filtro de parâmetros do efeito | `src/avell_storm_rgb/infrastructure/usb/ite8291_usb.py` (`KEYBOARD_EFFECT_PARAMS`, `keyboard_effect_kwargs`) |
+| Visual salvo / restore | `src/avell_storm_rgb/application/device_state.py` |
 | UI do teclado | `src/app/ui/pages/KeyboardPage.qml`, `src/app/ui/main.qml` |
 | Protocolo do 8233 | `src/avell_storm_rgb/infrastructure/usb/ite8233_usb.py` |
 | Cores / paletas da barra | `src/avell_storm_rgb/domain/ledbar_colors.py` |

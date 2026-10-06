@@ -28,7 +28,7 @@ flowchart LR
 ```
 
 - **Sem driver de kernel, sem daemon.** O programa fala direto com os chips por transferências de controle USB.
-- **Nada salvo em disco.** Só duas preferências da GUI são salvas (veja *Estado e persistência* em [ARCHITECTURE](ARCHITECTURE.pt-BR.md)).
+- **Lembra das suas luzes.** A GUI salva os dispositivos que você conectou, o estado da luz e o último visual em `~/.config/avell-storm-rgb/state.json`, e restaura tudo ao abrir (veja *Estado e persistência* em [ARCHITECTURE](ARCHITECTURE.pt-BR.md)).
 
 ## 🧭 Os dois dispositivos
 
@@ -49,8 +49,7 @@ flowchart LR
 | Funcionalidade | CLI | GUI |
 |----------------|-----|-----|
 | Listar dispositivos | `device list` | Página **Devices** |
-| Desligar teclado | `keyboard power off` | ✅ |
-| Ligar teclado (repete o último efeito) | — | ✅ só na GUI |
+| Ligar/desligar a luz do teclado | `keyboard power off` (só desligar) | **Switch** da barra lateral (ligar reaplica o visual salvo) |
 | Brilho do teclado | `keyboard brightness N` | Slider (com debounce) |
 | Efeito de firmware | `keyboard effect NOME …` | Aba **Effect** (aplica sozinho) |
 | Slots de paleta 1–7 | `keyboard palette restore \| random \| set-slot` | Aba **Palette slot configuration** |
@@ -60,9 +59,10 @@ flowchart LR
 | Seguir a tela | `keyboard follow-screen` | Aba **Follow screen** |
 | Padrão de teste / congelar | `demo-test-pattern`, `freeze-animation` | Aba **Tools** |
 | Inspecionar (FW, brilho, ligado/desligado) | `keyboard inspect` | Mostrado na página |
-| Ligar/desligar barra de LED | `led-bar power on \| off` | ✅ (+ repete o último modo ao ligar) |
+| Ligar/desligar a luz da barra de LED | `led-bar power on \| off` | **Switch** da barra lateral |
 | Cor, paleta, efeito, brilho, velocidade da barra | `led-bar color \| palette \| effect \| brightness \| speed` | 4 abas |
-| Ícone na bandeja, fechar para a bandeja, auto-connect | — | ✅ só na GUI |
+| Lembrar dispositivos e restaurar o último visual ao abrir | `state show` · `state restore` | ✅ automático |
+| Ícone na bandeja, fechar para a bandeja | — | ✅ só na GUI |
 
 ## 🧭 Tour pela GUI
 
@@ -77,8 +77,9 @@ flowchart LR
     foot --> about["About"]
 ```
 
-- **Devices:** varredura USB, conectar / desconectar.
-- **Keyboard** e **LED bar** têm um **switch** liga/desliga na barra lateral (conectar / desconectar).
+- **Devices:** varredura USB. **Connect lembra** o dispositivo; **Disconnect esquece** (o visual salvo é mantido).
+- Só dispositivos **lembrados** aparecem na barra lateral. O **switch** deles liga/desliga a **luz**.
+- Um dispositivo lembrado que está desconectado do USB aparece como **Unavailable**; a página dele oferece **Retry** e **Forget**.
 
 | Abas do teclado | | Abas da barra de LED |
 |---|---|---|
@@ -86,7 +87,7 @@ flowchart LR
 | **User-defined:** Solid color · Per-key grid · Animation file · Follow screen | | Preset + effect |
 | **Extra:** Tools | | Effect only · Brightness & motion |
 
-- **Settings:** fechar para a bandeja, auto-connect na inicialização, USB verboso para o teclado, sair.
+- **Settings:** fechar para a bandeja, USB verboso para o teclado, sair.
 - Um véu translúcido **"USB operation in progress…"** aparece enquanto uma tarefa USB roda.
 
 > [!NOTE]

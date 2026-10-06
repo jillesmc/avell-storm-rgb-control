@@ -1,5 +1,5 @@
 ---
-status: pending
+status: in_progress
 title: "Task 6: Document remembered devices in both languages"
 type: docs
 complexity: low
@@ -34,9 +34,9 @@ This task updates the permanent docs (EN + pt-BR pairs) so that users and agents
 
 ## Subtasks
 
-- [ ] 6.1 Update the EN docs.
-- [ ] 6.2 Update the pt-BR pairs.
-- [ ] 6.3 Update the AGENTS rules.
+- [x] 6.1 Update the EN docs.
+- [x] 6.2 Update the pt-BR pairs.
+- [x] 6.3 Update the AGENTS rules.
 - [ ] 6.4 Run the link/pair/Mermaid checks; run the hardware checklist with the user.
 
 ## Implementation Details
@@ -62,3 +62,9 @@ This task updates the permanent docs (EN + pt-BR pairs) so that users and agents
 
 - Checks pass with 0 problems.
 - The user confirms the hardware checklist, or a failing item is reported back as a bug against the owning task.
+
+## Progress Notes
+
+- Done: OVERVIEW, ARCHITECTURE (layers, class diagram, state table, debts #3/#4/#6/#7), FLOWS (§2 startup restore, §3 saved effect, §7 light switch), GLOSSARY, FEATURE_MATRIX (state commands), DEVELOPMENT (tests, recipes, debugging), root README, DEVICE_FEATURES_DEEP_DIVE, all in EN + pt-BR; `AGENTS.md` and `src/app/AGENTS.md` rules.
+- Checks: link / anchor / pair / length script → 0 problems over 40 Markdown files; 24 Mermaid diagrams render; stale-term grep → only intentional history mentions.
+- **Open:** the manual hardware checklist (`_tests.md`, items 1–5) must be run with the user on the real laptop. The task stays `in_progress` until then.

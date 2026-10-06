@@ -43,7 +43,7 @@ flowchart TB
 |--------|-------|--------|----------------|
 | **domain** | `domain/` | Lógica pura, sem USB: DSL de animação, parsing de cor/paleta, layout por tecla, mapeamento de linha UI ↔ dispositivo | `anim_dsl.py`, `ledbar_colors.py`, `per_key_grid.py`, `keyboard_solid_colors.py` |
 | **ports** | `ports/` | Tipos `Protocol` para os drivers (fakes de teste) | `protocols.py` |
-| **application** | `application/` | Casos de uso: abrir/descrever dispositivos, follow-screen (X11, Wayland, despacho, amostragem de frame) | `device_facade.py`, `screen_follow*.py` |
+| **application** | `application/` | Casos de uso: abrir/descrever dispositivos (também por USB id), **estado salvo dos dispositivos** (modelo, store do `state.json`, restore), follow-screen (X11, Wayland, despacho, amostragem de frame) | `device_facade.py`, `device_state.py`, `screen_follow*.py` |
 | **infrastructure** | `infrastructure/usb/` | Drivers **fiéis ao protocolo**, tabelas de efeitos, descoberta | `ite8291_usb.py`, `ite8233_usb.py`, `discovery.py` |
 | **adapters** | `adapters/cli/` | `argparse`; um handler `_cmd_*` por subcomando | `main.py` |
 
@@ -72,7 +72,7 @@ classDiagram
     class AppFacade {
         +state / devices / keyboard / ledBar
         +connectDevice(kind, bus, addr)
-        +tryAutoConnectDiscoveredDevices()
+        +restoreRememberedDevices()
     }
     class UsbWorker {
         +submit(fn, show_busy)
@@ -85,9 +85,10 @@ classDiagram
     }
     class LedBarBackend {
         +applyPalette(spec, effect)
-        +powerOnReplay()
+        +setLightOn(on)
     }
     AppFacade *-- UsbWorker
+    AppFacade *-- DeviceStateStore : only writer
     AppFacade *-- AppState
     AppFacade *-- DeviceListModel
     AppFacade *-- KeyboardBackend
@@ -129,13 +130,13 @@ A **CLI não tem threads**: cada comando abre o dispositivo, executa e sai. `Ctr
 
 | O quê | Onde fica | Sobrevive a reinício? |
 |-------|-----------|-----------------------|
-| Fechar para a bandeja, auto-connect | Chaves do `QSettings` `ui/closeToTray`, `ui/autoConnectOnStartup` | ✅ |
-| Cores da paleta do teclado (para exibir) | `KeyboardBackend._palette_mirror` (espelho de sessão) | ❌ |
-| Cores por tecla (coordenadas da UI) | `KeyboardBackend._key_colors` | ❌ |
-| Parâmetros do último efeito de firmware (para reaplicar ao mudar brilho) | `KeyboardBackend._last_fw_*` | ❌ |
-| Efeito do teclado antes de desligar | `KeyboardBackend._last_effect_snapshot` | ❌ |
-| Último modo da barra de LED (replay ao ligar) | `LedBarBackend._last_replay` | ❌ |
-| Brilho / velocidade / paleta da barra | Atributos do `Ite8233UsbDevice`; enviados com o próximo efeito | ❌ |
+| Fechar para a bandeja | Chave do `QSettings` `ui/closeToTray` | ✅ |
+| **Dispositivos lembrados, estado da luz, último visual**, slots de paleta e brilho do teclado | `state.json` via `DeviceStateStore` — escrito **só** pelo `AppFacade` na thread da GUI, de forma atômica | ✅ |
+| Cores da paleta do teclado (para exibir) | `KeyboardBackend._palette_mirror` (espelho de sessão, preenchido no restore) | ❌ |
+| Cores por tecla (coordenadas da UI) | `KeyboardBackend._key_colors` (preenchido no restore) | ❌ |
+| Efeito de firmware reenviado quando o brilho muda | `KeyboardBackend._fw_look` | ❌ |
+| Efeito do teclado antes de apagar a luz (reserva quando nada está salvo) | `KeyboardBackend._last_effect_snapshot` | ❌ |
+| Brilho / velocidade / paleta da barra | Atributos do `Ite8233UsbDevice`; enviados com o próximo efeito (o visual salvo os guarda entre execuções) | ❌ |
 | Efeito dentro do teclado | Memória do controlador; `save=1` pede para persistir | Depende do hardware |
 
 > [!NOTE]
@@ -161,17 +162,17 @@ Matriz de parâmetros por efeito → [DEVICE_FEATURES_DEEP_DIVE](DEVICE_FEATURES
 
 ## ⚠️ Dívidas conhecidas e pegadinhas
 
-Encontradas durante o mapeamento do código. **Nenhuma foi corrigida ainda.**
+Encontradas durante o mapeamento do código. **A #4 e a #7 foram corrigidas** no trabalho de dispositivos lembrados; a #3 e a #6 melhoraram.
 
 | # | Achado | Onde | Por que importa |
 |---|--------|------|-----------------|
 | 1 | **Domain importa infrastructure** (`NUM_ROWS`, `NUM_COLS`) | `domain/anim_dsl.py:8`, `domain/per_key_grid.py:12` | Domain não é puro; o tamanho da grade pertence ao driver |
 | 2 | **Tabelas de efeitos ficam em infrastructure** e os adapters importam direto, pulando `application` | CLI `main.py:23-24`, `app_facade.py:20-26` | A regra de camadas só vale em parte |
-| 3 | **`ports/protocols.py` não é usado** em produção (só testes); as fachadas retornam classes concretas | `application/device_facade.py:22` | O port existe, mas ninguém depende dele |
-| 4 | **`EFFECT_KWARGS` duplica** as listas de parâmetros de `KEYBOARD_EFFECTS` | `keyboard_backend.py:52` vs `ite8291_usb.py:102` | Adicionar um efeito exige editar os dois |
+| 3 | **`ports/protocols.py` quase não é usado** — resolvido em parte: as funções de restore do `device_state` são tipadas por ele; as fachadas ainda retornam classes concretas | `application/device_facade.py:22` | Só o restore depende do port |
+| 4 | ✅ **Resolvida** — `KEYBOARD_EFFECT_PARAMS` é derivado dos builders; GUI e restore usam o mesmo `keyboard_effect_kwargs` | `ite8291_usb.py` | — |
 | 5 | **`_DEFAULT_PALETTE` duplica** `restore_default_palette()` | `keyboard_backend.py:82` vs `ite8291_usb.py:290` | Podem divergir |
-| 6 | **Thread USB única** trava durante follow / animação em loop | `usb_worker.py:25` | Outras ações parecem congeladas até o Stop |
-| 7 | **`show_busy=forever` parece invertido.** O véu aparece em loops "forever" e não nos finitos. A docstring de `UsbWorker.submit` diz que tarefas longas devem usar `show_busy=False` | `keyboard_backend.py:626` | Feedback confuso |
+| 6 | **Thread USB única** trava durante follow / animação em loop. Ações do teclado agora param a animação antes; **ações da barra de LED ainda esperam** | `usb_worker.py:25` | Uma animação *forever* restaurada atrasa mudanças na barra até o Stop |
+| 7 | ✅ **Resolvida** — animações sempre rodam com `show_busy=False` | `keyboard_backend.py` | — |
 | 8 | **Follow-screen amostra 16 × 6**, então só as colunas de LED 0–15 de 21 acendem | `screen_follow_frame.py:13` | O lado direito do teclado fica apagado |
 | 9 | **`KeyColorGrid.qml` não é usado** (substituído por `KeyboardLayoutView`) | `src/app/ui/components/` | Código morto |
 | 10 | **"Test pattern" da GUI ≠ CLI**: a GUI manda um frame, a CLI roda 6 passos e restaura | `keyboard_backend.py:579` vs `cli/main.py:132` | Comportamento diferente, mesmo nome |

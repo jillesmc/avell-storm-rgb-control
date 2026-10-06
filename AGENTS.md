@@ -32,6 +32,9 @@ Source of truth for agents working in this repo. Folder-specific rules live in
 - **USB payloads** (`src/avell_storm_rgb/infrastructure/usb/`) are wire-accurate ports of upstream code.
   Don't change bytes, offsets or command order without hardware proof or a characterisation test.
 - **GUI USB I/O** goes only through `UsbWorker.submit` (one background thread). Never call USB from QML or the GUI thread.
+- **Saved device state** (`state.json`, `avell_storm_rgb.application.device_state`) has **one writer**: `AppFacade`, on the GUI thread.
+  The CLI and restore functions only read it. `device_state` must stay Qt-free.
+- Tests must never touch the user's real config: `tests/conftest.py` points `XDG_CONFIG_HOME` at a temp dir; keep it.
 - **No new dependencies** without an explicit request. Add them with `uv add` (optional extras for GUI/screen).
 - Tasks about **CLI / USB / `avell_storm_rgb`**: don't import PySide6 there.
   Tasks about **GUI / QML / `src/app/`**: follow the folder `AGENTS.md`.

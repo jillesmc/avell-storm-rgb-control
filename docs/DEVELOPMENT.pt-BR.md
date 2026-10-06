@@ -58,9 +58,12 @@ SUBSYSTEM=="usb", ATTR{idVendor}=="048d", ATTR{idProduct}=="7001", MODE="0666"
 | `test_cli_help.py` | O parser da CLI monta e o `--help` funciona |
 | `test_screen_follow_frame.py` | Frame → mapa de cores 16 × 6 (precisa de Pillow) |
 | `test_usb_worker.py` | Sinais do worker, com e sem ocupado, falhas |
-| `test_keyboard_backend_power_replay.py`, `test_led_bar_backend_power_replay.py` | Backends com drivers falsos |
+| `test_device_state.py`, `test_device_facade_usb_id.py` | Estado salvo: store, validação, restore; abrir por USB id |
+| `test_keyboard_backend_light.py`, `test_led_bar_backend_light.py` | Backends com drivers falsos: visuais salvos, switch de luz |
 | `test_keyboard_effect_supports.py` | Matriz `effectSupports` |
-| `test_app_facade_autoconnect.py` | Regras de auto-connect, `QSettings` |
+| `test_app_facade_memory.py`, `test_app_restore_integration.py` | Lembrar / esquecer, restauração ao abrir, migração (worker real, USB falso) |
+| `test_cli_state.py` | Transcrições de `state show` / `state restore` |
+| `test_gui_remembered_devices.py` | Entradas da barra lateral, switch de luz, página indisponível |
 | `test_gui_smoke.py`, `test_gui_pages.py`, `test_gui_shell.py` | QML carrega; contratos de `objectName` |
 
 - Os testes de GUI rodam **offscreen** (`QT_QPA_PLATFORM=offscreen`, definido em `tests/gui_helpers.py`).
@@ -87,8 +90,7 @@ SUBSYSTEM=="usb", ATTR{idVendor}=="048d", ATTR{idProduct}=="7001", MODE="0666"
 ### Adicionar um efeito de firmware do teclado
 
 1. Adicione um builder em `KEYBOARD_EFFECTS` em `src/avell_storm_rgb/infrastructure/usb/ite8291_usb.py:102` (id do efeito + parâmetros suportados + padrões).
-2. Adicione o **mesmo conjunto de parâmetros** em `EFFECT_KWARGS` em `src/app/ui/adapters/keyboard_backend.py:52`.
-3. Estenda `tests/test_keyboard_effect_supports.py`.
+2. Estenda `tests/test_keyboard_effect_supports.py`. A tabela de parâmetros suportados (`KEYBOARD_EFFECT_PARAMS`) é derivada do builder.
 4. Atualize [FEATURE_MATRIX](FEATURE_MATRIX.pt-BR.md) e [DEVICE_FEATURES_DEEP_DIVE](DEVICE_FEATURES_DEEP_DIVE.pt-BR.md) (nos dois idiomas).
 
 As `choices` da CLI e a lista da GUI (`App.keyboardEffectNames`) pegam o novo efeito sozinhas.
@@ -110,8 +112,9 @@ As `choices` da CLI e a lista da GUI (`App.keyboardEffectNames`) pegam o novo ef
 1. No backend (`keyboard_backend.py` / `led_bar_backend.py`), adicione um `@Slot` que limita as entradas e embrulha o trabalho USB em `def task():`.
 2. Chame `self._worker.submit(task)`. Use `show_busy=False` **só** em tarefas longas que o usuário pode parar.
 3. Devolva resultados por um `Signal`. Use `QueuedConnection` se a task alterar estado do backend.
-4. Chame do QML como `App.keyboard.<slot>(...)`. **Nunca** toque em USB pelo QML.
-5. Adicione um teste do backend com driver falso (veja os testes `*_power_replay`).
+4. **Se a ação aplica um visual**, emita `persistUpdate` **depois** que a chamada ao driver deu certo, para ele virar o visual salvo. Nunca grave o `state.json` diretamente.
+5. Chame do QML como `App.keyboard.<slot>(...)`. **Nunca** toque em USB pelo QML.
+6. Adicione um teste do backend com os fakes de `tests/backend_fakes.py` (veja `test_*_backend_light.py`).
 
 ### Adicionar uma página ou aba QML
 
@@ -130,5 +133,6 @@ As `choices` da CLI e a lista da GUI (`App.keyboardEffectNames`) pegam o novo ef
 - **Dispositivo não encontrado** → confira as regras udev, `lsusb | grep 048d`, e se o teclado reporta rev `0.03`.
 - **GUI com cara de Qt puro** → instale `qqc2-breeze-style`; confira `/usr/lib/qt6/qml/org/kde/desktop`.
 - **QML não carrega** → instale o Kirigami 6; o app imprime uma dica e sai com 1.
+- **Luzes não foram restauradas** → `avell-storm-rgb state show`. Um arquivo quebrado vai para `state.json.invalid` e aparece como erro na página Devices.
 - **`BadMatch` no X11** durante o follow-screen → XWayland ou região fora da tela.
 - **GUI parece travada no USB** → provavelmente há um follow-screen ou uma animação em loop rodando. Aperte **Stop**.

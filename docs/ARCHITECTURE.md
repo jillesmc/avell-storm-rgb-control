@@ -43,7 +43,7 @@ flowchart TB
 |-------|--------|-------|-----------|
 | **domain** | `domain/` | Pure logic, no USB: animation DSL, colour/palette parsing, per-key layout, UI ↔ device row mapping | `anim_dsl.py`, `ledbar_colors.py`, `per_key_grid.py`, `keyboard_solid_colors.py` |
 | **ports** | `ports/` | `Protocol` types for drivers (test fakes) | `protocols.py` |
-| **application** | `application/` | Use cases: open/describe devices, follow-screen (X11, Wayland, dispatch, frame sampling) | `device_facade.py`, `screen_follow*.py` |
+| **application** | `application/` | Use cases: open/describe devices (also by USB id), **saved device state** (model, `state.json` store, restore), follow-screen (X11, Wayland, dispatch, frame sampling) | `device_facade.py`, `device_state.py`, `screen_follow*.py` |
 | **infrastructure** | `infrastructure/usb/` | **Wire-accurate** drivers, effect tables, discovery | `ite8291_usb.py`, `ite8233_usb.py`, `discovery.py` |
 | **adapters** | `adapters/cli/` | `argparse`; one `_cmd_*` handler per subcommand | `main.py` |
 
@@ -72,7 +72,7 @@ classDiagram
     class AppFacade {
         +state / devices / keyboard / ledBar
         +connectDevice(kind, bus, addr)
-        +tryAutoConnectDiscoveredDevices()
+        +restoreRememberedDevices()
     }
     class UsbWorker {
         +submit(fn, show_busy)
@@ -85,9 +85,10 @@ classDiagram
     }
     class LedBarBackend {
         +applyPalette(spec, effect)
-        +powerOnReplay()
+        +setLightOn(on)
     }
     AppFacade *-- UsbWorker
+    AppFacade *-- DeviceStateStore : only writer
     AppFacade *-- AppState
     AppFacade *-- DeviceListModel
     AppFacade *-- KeyboardBackend
@@ -129,13 +130,13 @@ The **CLI has no threads**: each command opens the device, runs, and exits. `Ctr
 
 | What | Where it lives | Survives restart? |
 |------|----------------|-------------------|
-| Close to tray, auto-connect | `QSettings` keys `ui/closeToTray`, `ui/autoConnectOnStartup` | ✅ |
-| Keyboard palette colours (for display) | `KeyboardBackend._palette_mirror` (session mirror) | ❌ |
-| Per-key colours (UI coordinates) | `KeyboardBackend._key_colors` | ❌ |
-| Last firmware effect params (to re-apply on brightness change) | `KeyboardBackend._last_fw_*` | ❌ |
-| Keyboard effect before power off | `KeyboardBackend._last_effect_snapshot` | ❌ |
-| LED bar last mode (for power-on replay) | `LedBarBackend._last_replay` | ❌ |
-| LED bar brightness / speed / palette | Attributes on `Ite8233UsbDevice`; sent with the next effect | ❌ |
+| Close to tray | `QSettings` key `ui/closeToTray` | ✅ |
+| **Remembered devices, light state, last look**, keyboard palette slots and brightness | `state.json` via `DeviceStateStore` — written **only** by `AppFacade` on the GUI thread, atomically | ✅ |
+| Keyboard palette colours (for display) | `KeyboardBackend._palette_mirror` (session mirror, seeded at restore) | ❌ |
+| Per-key colours (UI coordinates) | `KeyboardBackend._key_colors` (seeded at restore) | ❌ |
+| Firmware effect re-sent when brightness changes | `KeyboardBackend._fw_look` | ❌ |
+| Keyboard effect before light off (fallback when nothing is saved) | `KeyboardBackend._last_effect_snapshot` | ❌ |
+| LED bar brightness / speed / palette | Attributes on `Ite8233UsbDevice`; sent with the next effect (the saved look keeps them across restarts) | ❌ |
 | Effect inside the keyboard | Controller memory; `save=1` asks it to persist | Hardware-dependent |
 
 > [!NOTE]
@@ -161,17 +162,17 @@ Parameter matrix per effect → [DEVICE_FEATURES_DEEP_DIVE](DEVICE_FEATURES_DEEP
 
 ## ⚠️ Known debts and gotchas
 
-These were found while mapping the code. **None has been fixed yet.**
+These were found while mapping the code. **#4 and #7 were fixed** by the remembered-devices work; #3 and #6 improved.
 
 | # | Finding | Where | Why it matters |
 |---|---------|-------|----------------|
 | 1 | **Domain imports infrastructure** (`NUM_ROWS`, `NUM_COLS`) | `domain/anim_dsl.py:8`, `domain/per_key_grid.py:12` | Domain is not pure; grid size is owned by the driver |
 | 2 | **Effect tables live in infrastructure** and adapters import them directly, bypassing `application` | CLI `main.py:23-24`, `app_facade.py:20-26` | Layer rule is only partly enforced |
-| 3 | **`ports/protocols.py` is unused** in production code (tests only); facades return concrete classes | `application/device_facade.py:22` | The port exists, but nothing depends on it |
-| 4 | **`EFFECT_KWARGS` duplicates** the parameter lists of `KEYBOARD_EFFECTS` | `keyboard_backend.py:52` vs `ite8291_usb.py:102` | Adding an effect means editing both |
+| 3 | **`ports/protocols.py` barely used** — partly resolved: the `device_state` restore functions are typed against it; facades still return concrete classes | `application/device_facade.py:22` | Only restore depends on the port |
+| 4 | ✅ **Resolved** — `KEYBOARD_EFFECT_PARAMS` is derived from the builders; GUI and restore share `keyboard_effect_kwargs` | `ite8291_usb.py` | — |
 | 5 | **`_DEFAULT_PALETTE` duplicates** `restore_default_palette()` | `keyboard_backend.py:82` vs `ite8291_usb.py:290` | They can drift apart |
-| 6 | **Single USB thread** blocks during follow / looping animation | `usb_worker.py:25` | Other actions look frozen until Stop |
-| 7 | **`show_busy=forever` looks inverted.** The overlay shows for "forever" loops and not for finite ones. The `UsbWorker.submit` docstring says long-running tasks should pass `show_busy=False` | `keyboard_backend.py:626` | Confusing feedback |
+| 6 | **Single USB thread** blocks during follow / looping animation. Keyboard actions now stop it first; **LED bar actions still wait** | `usb_worker.py:25` | A restored *forever* animation delays LED bar changes until Stop |
+| 7 | ✅ **Resolved** — animations always run with `show_busy=False` | `keyboard_backend.py` | — |
 | 8 | **Follow-screen samples 16 × 6**, so only LED columns 0–15 of 21 are lit | `screen_follow_frame.py:13` | Right side of the keyboard stays dark |
 | 9 | **`KeyColorGrid.qml` is unused** (replaced by `KeyboardLayoutView`) | `src/app/ui/components/` | Dead code |
 | 10 | **GUI "test pattern" ≠ CLI**: the GUI sends one frame, the CLI runs 6 steps and restores | `keyboard_backend.py:579` vs `cli/main.py:132` | Different behaviour, same name |

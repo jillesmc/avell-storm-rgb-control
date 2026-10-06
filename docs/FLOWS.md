@@ -14,12 +14,12 @@
 | # | Flow | Section |
 |---|------|---------|
 | 1 | CLI command | [1](#-1--cli-command) |
-| 2 | GUI startup and auto-connect | [2](#-2--gui-startup-and-auto-connect) |
+| 2 | GUI startup: reconnect and restore | [2](#-2--gui-startup-reconnect-and-restore) |
 | 3 | Firmware effect from the GUI | [3](#-3--firmware-effect-from-the-gui) |
 | 4 | Brightness slider | [4](#-4--brightness-slider) |
 | 5 | Per-key colours | [5](#-5--per-key-colours) |
 | 6 | Follow screen | [6](#-6--follow-screen) |
-| 7 | Power off and replay | [7](#-7--power-off-and-replay) |
+| 7 | Light switch | [7](#-7--light-switch) |
 | 8 | Animation script | [8](#-8--animation-script) |
 
 ---
@@ -43,27 +43,29 @@ sequenceDiagram
 - **Every command opens the device fresh** and exits. Nothing is kept between runs.
 - Handlers live in `src/avell_storm_rgb/adapters/cli/main.py` (`_cmd_*`). The parser is built in `_build_parser()` (`:273`).
 
-## 🔁 2 · GUI startup and auto-connect
+## 🔁 2 · GUI startup: reconnect and restore
 
 ```mermaid
 sequenceDiagram
-    participant Main as main.py
-    participant Fa as AppFacade
     participant Q as main.qml
+    participant Fa as AppFacade
+    participant LB as LedBarBackend
     participant KB as KeyboardBackend
     participant W as UsbWorker
-    Main->>Fa: AppFacade(engine) → context property "App"
-    Main->>Q: engine.load(main.qml)
+    Fa->>Fa: load state.json (invalid → state.json.invalid)
     Q->>Fa: refreshDevices()  (USB scan, GUI thread)
-    Q->>Fa: tryAutoConnectDiscoveredDevices()
-    Fa->>KB: connectAt(bus, addr)  (first keyboard)
-    KB->>W: submit(task)
-    W->>KB: open_keyboard → connectedChanged → inspect
-    KB-->>Q: App.keyboard.connected = true → tab appears
+    Q->>Fa: restoreRememberedDevices()
+    Fa->>LB: connectAt + restore(saved)  (LED bar first)
+    Fa->>KB: connectAt + restore(saved)
+    LB->>W: power off, or palette → brightness → speed → effect
+    KB->>W: palette → brightness → light off, or look
+    KB-->>W: saved animation (queued last)
 ```
 
-- Auto-connect is **on by default**. It is skipped when `ui/autoConnectOnStartup` is false (**Settings** page).
-- The LED bar follows the same path through `LedBarBackend.connectAt` (`open_led_bar_at(bus, addr)`).
+- Remembered devices are matched by **USB id** (`048d:ce00`), not bus/address. A missing one shows **Unavailable** in the sidebar, with **Retry** / **Forget**.
+- **First start of this version** (no `state.json`): the old auto-connect setting is migrated once. The first keyboard and LED bar are remembered unless auto-connect was off.
+- **Devices → Connect** remembers a device once the connection succeeds; **Disconnect** forgets it but keeps its saved look.
+- **Saving:** every successful apply emits `persistUpdate`; `AppFacade` merges it and writes `state.json` (the only writer, on the GUI thread, atomic replace).
 - If QML fails to load (Kirigami missing), `main()` prints a hint and exits 1.
 
 ## 🔁 3 · Firmware effect from the GUI
@@ -80,12 +82,13 @@ sequenceDiagram
     P->>KB: applyEffect(name, speed, brightness, color, dir, reactive, save)
     KB->>KB: remember params, brightness target = FIRMWARE_REAPPLY
     KB->>W: submit(task)
-    W->>D: set_effect(builder(**_effect_kwargs(...)))
+    W->>D: set_effect(firmware_effect_payload(look)) → persistUpdate
     W-->>P: inspectUpdate → fw / brightness / on-off
 ```
 
 - **Debounce:** `fwEffectApplyTimer` (200 ms) in `src/app/ui/pages/KeyboardPage.qml:141`. Opening the tab or resizing **does not** send anything.
-- **Filter:** `_effect_kwargs` (`keyboard_backend.py:428`) keeps only the parameters listed in `EFFECT_KWARGS` for that effect.
+- **Filter:** `keyboard_effect_kwargs` (`ite8291_usb.py`) keeps only the parameters in `KEYBOARD_EFFECT_PARAMS` for that effect.
+- **Saved:** after `set_effect` succeeds, the effect becomes the keyboard's saved look (`persistUpdate`).
 
 > [!WARNING]
 > The **colour** sent is a **palette slot index** (1–7, 8 = random, 0 = none), **not RGB**.
@@ -96,7 +99,7 @@ sequenceDiagram
 stateDiagram-v2
     [*] --> GLOBAL_ONLY
     GLOBAL_ONLY --> FIRMWARE_REAPPLY: applyEffect()
-    FIRMWARE_REAPPLY --> GLOBAL_ONLY: solid / per-key / animation / follow / power off / connect
+    FIRMWARE_REAPPLY --> GLOBAL_ONLY: solid / per-key / animation / follow / light off / connect
 ```
 
 1. Slider moves → `requestBrightnessFromUi(fw0to50)` (`keyboard_backend.py:402`). The QML converts % → 0–50.
@@ -153,16 +156,17 @@ flowchart TB
 > [!WARNING]
 > While it runs, it **holds the only USB thread**. Other GUI USB actions queue until you press Stop.
 
-## 🔁 7 · Power off and replay
+## 🔁 7 · Light switch
 
-| Device | Power off | Power on (GUI) |
-|--------|-----------|----------------|
-| **Keyboard** | `powerOff` → `get_effect()` **snapshot** → `turn_off()` → `effectSnapshotUpdate` | `powerOnReplay` → `set_effect(snapshot)` |
-| **LED bar** | `powerOff` → `power_off()` sequence | `powerOnReplay` → `power_on()` + `_replay_last_on_device()` |
+| Device | Switch **off** | Switch **on** |
+|--------|----------------|---------------|
+| **Keyboard** | Stop animation / follow → snapshot `get_effect()` → `turn_off()` | Re-apply the **saved look** (an animation restarts); else the snapshot; else firmware `rainbow` |
+| **LED bar** | `power_off()` | `power_on()` + the saved look |
 
-- **LED bar replay record:** every action emits `replayModeUpdate` with a dict of kind `color`, `palette`, `effect`, `tune_bri`, `tune_sp` or `tune`. The last one wins.
-- **Disconnect** clears both the snapshot and the replay record.
-- The CLI has `keyboard power off` only. Power on with replay is **GUI only**.
+- The light state is **saved**. At startup, `off` turns the device off and the look is **not** applied.
+- **Applying any look while the light is off turns it on** (and the switch follows).
+- An unavailable device's switch is **disabled** and shows the saved light state.
+- The CLI's `keyboard power off` / `led-bar power on|off` don't touch the saved state; `state restore` applies it.
 
 ## 🔁 8 · Animation script
 

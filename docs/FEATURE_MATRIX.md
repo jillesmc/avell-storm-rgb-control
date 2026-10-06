@@ -55,6 +55,15 @@ USB `048d:7000`, `048d:7001`, or product string containing `8233`.
 > [!NOTE]
 > The LED bar only receives brightness and speed **inside an effect report**. That is why both commands re-apply an effect (`--with-effect`).
 
+## 🧭 Saved state (both devices)
+
+The GUI remembers connected devices and their last look in `state.json`. The CLI can read it.
+
+| Capability | Limits / notes | CLI |
+|------------|----------------|-----|
+| Show the saved state | human or `--json` | `state show [--json]` |
+| Restore without the GUI | LED bar then keyboard; remembered devices only; never writes the file | `state restore [--kind all\|keyboard\|led-bar] [--no-animation] [--json]` |
+
 ## 🛠️ USB reference
 
 - Keyboard: vendor `048d`, products listed above.

@@ -26,11 +26,16 @@ Device logic belongs in the core package (`src/avell_storm_rgb/`). Reuse `applic
 - **USB only through `UsbWorker.submit(task)`.** A backend slot clamps inputs, wraps the USB call in `def task():`
   and submits it. Results go back through `Signal`s, using `Qt.QueuedConnection` when they mutate backend state.
 - `show_busy=False` is only for long tasks the user can stop (follow-screen, animations). They hold the only
-  USB thread, so stop them through the shared `threading.Event`.
+  USB thread; stop them with `stopFollowOrAnimation()` (per-task stop event).
 - Expose to QML only what it needs: `Property` (+ `notify` signal), `Slot`, `Signal`. No business logic in QML/JS.
 - Type hints on public APIs and on everything exposed to QML. Use `pathlib.Path`. No `import *`.
-- Persist settings only through `QSettings` (keys under `ui/`).
-- When adding a backend action, add a test with a fake driver (see `tests/test_*_power_replay.py`).
+- UI preferences go in `QSettings` (keys under `ui/`). **Device state** (remembered devices, light, last look) goes in `state.json`
+  through `AppFacade` only.
+- Any slot that **applies a look** must emit `persistUpdate` from inside its USB task **after** the driver call succeeded
+  (`look`, `palette`, `brightness`, `power` keys). `restore()` never emits it.
+- Keyboard look changes, light-off and disconnect must stop a running animation / follow-screen first (`_stop_long_task()`),
+  and each long task gets its own stop event (`_new_long_task_stop()`).
+- When adding a backend action, add a test with the fakes in `tests/backend_fakes.py` (see `tests/test_*_backend_light.py`).
 
 ## Don't
 

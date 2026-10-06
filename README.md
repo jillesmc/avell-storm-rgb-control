@@ -88,6 +88,14 @@ avell-storm-rgb led-bar speed 5 --with-effect breathing       # 1–10
 avell-storm-rgb led-bar inspect
 ```
 
+**Saved state** (written by the GUI; the CLI only reads it)
+
+```bash
+avell-storm-rgb state show [--json]                       # what the GUI will restore
+avell-storm-rgb state restore [--kind keyboard|led-bar]    # re-apply it without the GUI
+avell-storm-rgb state restore --no-animation              # skip a saved forever animation
+```
+
 ## 🛠️ Use the GUI
 
 ```bash
@@ -97,10 +105,12 @@ make sync-gui && make gui
 
 | Feature | Notes |
 |---------|-------|
-| **Auto-connect** | After the startup scan, connects the first keyboard and LED bar (on by default; **Settings**) |
-| **Device tabs** | **Keyboard** / **LED bar** only show while that device is connected |
+| **Remembered devices** | **Devices → Connect** remembers a device: it appears in the sidebar and reconnects every time the app opens. **Disconnect** forgets it |
+| **Startup look** | The last look you applied (effect, colour, per-key grid, animation, LED bar preset…) and the light on/off state come back when the app opens. Saved in `~/.config/avell-storm-rgb/state.json` |
+| **Light switch** | The switch next to **Keyboard** / **LED bar** in the sidebar turns that light on/off |
+| **Unavailable device** | A remembered device that is unplugged shows **Unavailable**, with **Retry** and **Forget** |
 | **Close to tray** | Closing hides the window (option in **Settings**). Quit from the tray menu or **Settings → Quit application** |
-| **Follow screen** | Runs without the busy overlay. **Stop** ends capture and clears the portal indicator. (A *forever* animation currently does show the overlay — [debt #7](docs/ARCHITECTURE.md)) |
+| **Follow screen / animations** | Run without the busy overlay. **Stop** ends them (and clears the portal indicator) |
 | **Logs** | `--verbose` / `--debug`, or `AVELL_STORM_RGB_LOG=debug` → DEBUG + full tracebacks on stderr |
 
 ### ⚠️ GUI needs Kirigami from the distro

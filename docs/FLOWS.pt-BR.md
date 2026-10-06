@@ -14,12 +14,12 @@
 | # | Fluxo | Seção |
 |---|-------|-------|
 | 1 | Comando da CLI | [1](#-1--comando-da-cli) |
-| 2 | Inicialização da GUI e auto-connect | [2](#-2--inicialização-da-gui-e-auto-connect) |
+| 2 | Inicialização da GUI: reconectar e restaurar | [2](#-2--inicialização-da-gui-reconectar-e-restaurar) |
 | 3 | Efeito de firmware pela GUI | [3](#-3--efeito-de-firmware-pela-gui) |
 | 4 | Slider de brilho | [4](#-4--slider-de-brilho) |
 | 5 | Cores por tecla | [5](#-5--cores-por-tecla) |
 | 6 | Seguir a tela | [6](#-6--seguir-a-tela) |
-| 7 | Desligar e replay | [7](#-7--desligar-e-replay) |
+| 7 | Switch de luz | [7](#-7--switch-de-luz) |
 | 8 | Script de animação | [8](#-8--script-de-animação) |
 
 ---
@@ -43,27 +43,29 @@ sequenceDiagram
 - **Todo comando abre o dispositivo do zero** e termina. Nada fica guardado entre execuções.
 - Os handlers ficam em `src/avell_storm_rgb/adapters/cli/main.py` (`_cmd_*`). O parser é montado em `_build_parser()` (`:273`).
 
-## 🔁 2 · Inicialização da GUI e auto-connect
+## 🔁 2 · Inicialização da GUI: reconectar e restaurar
 
 ```mermaid
 sequenceDiagram
-    participant Main as main.py
-    participant Fa as AppFacade
     participant Q as main.qml
+    participant Fa as AppFacade
+    participant LB as LedBarBackend
     participant KB as KeyboardBackend
     participant W as UsbWorker
-    Main->>Fa: AppFacade(engine) → context property "App"
-    Main->>Q: engine.load(main.qml)
+    Fa->>Fa: carrega state.json (inválido → state.json.invalid)
     Q->>Fa: refreshDevices()  (varredura USB, thread da GUI)
-    Q->>Fa: tryAutoConnectDiscoveredDevices()
-    Fa->>KB: connectAt(bus, addr)  (primeiro teclado)
-    KB->>W: submit(task)
-    W->>KB: open_keyboard → connectedChanged → inspect
-    KB-->>Q: App.keyboard.connected = true → aba aparece
+    Q->>Fa: restoreRememberedDevices()
+    Fa->>LB: connectAt + restore(salvo)  (barra de LED primeiro)
+    Fa->>KB: connectAt + restore(salvo)
+    LB->>W: desliga, ou paleta → brilho → velocidade → efeito
+    KB->>W: paleta → brilho → luz apagada, ou visual
+    KB-->>W: animação salva (vai por último na fila)
 ```
 
-- O auto-connect vem **ligado por padrão**. Ele é pulado quando `ui/autoConnectOnStartup` é falso (página **Settings**).
-- A barra de LED segue o mesmo caminho via `LedBarBackend.connectAt` (`open_led_bar_at(bus, addr)`).
+- Dispositivos lembrados são encontrados pelo **USB id** (`048d:ce00`), não por bus/endereço. Um ausente aparece como **Unavailable** na barra lateral, com **Retry** / **Forget**.
+- **Primeira abertura desta versão** (sem `state.json`): a antiga opção de auto-connect é migrada uma vez. O primeiro teclado e a primeira barra são lembrados, a menos que o auto-connect estivesse desligado.
+- **Devices → Connect** lembra o dispositivo quando a conexão dá certo; **Disconnect** esquece, mas mantém o visual salvo.
+- **Salvamento:** toda aplicação bem-sucedida emite `persistUpdate`; o `AppFacade` junta e grava o `state.json` (único escritor, na thread da GUI, com substituição atômica).
 - Se o QML não carregar (Kirigami ausente), `main()` imprime uma dica e sai com 1.
 
 ## 🔁 3 · Efeito de firmware pela GUI
@@ -80,12 +82,13 @@ sequenceDiagram
     P->>KB: applyEffect(name, speed, brightness, color, dir, reactive, save)
     KB->>KB: guarda parâmetros, alvo do brilho = FIRMWARE_REAPPLY
     KB->>W: submit(task)
-    W->>D: set_effect(builder(**_effect_kwargs(...)))
+    W->>D: set_effect(firmware_effect_payload(look)) → persistUpdate
     W-->>P: inspectUpdate → fw / brilho / ligado-desligado
 ```
 
 - **Debounce:** `fwEffectApplyTimer` (200 ms) em `src/app/ui/pages/KeyboardPage.qml:141`. Abrir a aba ou redimensionar **não** envia nada.
-- **Filtro:** `_effect_kwargs` (`keyboard_backend.py:428`) mantém só os parâmetros listados em `EFFECT_KWARGS` para aquele efeito.
+- **Filtro:** `keyboard_effect_kwargs` (`ite8291_usb.py`) mantém só os parâmetros de `KEYBOARD_EFFECT_PARAMS` para aquele efeito.
+- **Salvo:** depois que o `set_effect` dá certo, o efeito vira o visual salvo do teclado (`persistUpdate`).
 
 > [!WARNING]
 > A **cor** enviada é um **índice de slot da paleta** (1–7, 8 = random, 0 = none), **não RGB**.
@@ -96,7 +99,7 @@ sequenceDiagram
 stateDiagram-v2
     [*] --> GLOBAL_ONLY
     GLOBAL_ONLY --> FIRMWARE_REAPPLY: applyEffect()
-    FIRMWARE_REAPPLY --> GLOBAL_ONLY: sólido / por tecla / animação / follow / desligar / conectar
+    FIRMWARE_REAPPLY --> GLOBAL_ONLY: sólido / por tecla / animação / follow / apagar luz / conectar
 ```
 
 1. O slider se move → `requestBrightnessFromUi(fw0a50)` (`keyboard_backend.py:402`). O QML converte % → 0–50.
@@ -153,16 +156,17 @@ flowchart TB
 > [!WARNING]
 > Enquanto roda, ele **segura a única thread USB**. Outras ações USB da GUI ficam na fila até você apertar Stop.
 
-## 🔁 7 · Desligar e replay
+## 🔁 7 · Switch de luz
 
-| Dispositivo | Desligar | Ligar (GUI) |
-|-------------|----------|-------------|
-| **Teclado** | `powerOff` → **snapshot** de `get_effect()` → `turn_off()` → `effectSnapshotUpdate` | `powerOnReplay` → `set_effect(snapshot)` |
-| **Barra de LED** | `powerOff` → sequência `power_off()` | `powerOnReplay` → `power_on()` + `_replay_last_on_device()` |
+| Dispositivo | Switch **desligado** | Switch **ligado** |
+|-------------|----------------------|-------------------|
+| **Teclado** | Para animação / follow → snapshot de `get_effect()` → `turn_off()` | Reaplica o **visual salvo** (uma animação recomeça); senão o snapshot; senão o firmware `rainbow` |
+| **Barra de LED** | `power_off()` | `power_on()` + o visual salvo |
 
-- **Registro de replay da barra:** toda ação emite `replayModeUpdate` com um dict do tipo `color`, `palette`, `effect`, `tune_bri`, `tune_sp` ou `tune`. O último vence.
-- **Desconectar** limpa o snapshot e o registro de replay.
-- A CLI só tem `keyboard power off`. Ligar com replay é **só na GUI**.
+- O estado da luz é **salvo**. Ao abrir, `off` desliga o dispositivo e o visual **não** é aplicado.
+- **Aplicar qualquer visual com a luz apagada acende a luz** (e o switch acompanha).
+- O switch de um dispositivo indisponível fica **desabilitado** e mostra o estado de luz salvo.
+- `keyboard power off` / `led-bar power on|off` da CLI não mexem no estado salvo; `state restore` aplica o estado salvo.
 
 ## 🔁 8 · Script de animação
 

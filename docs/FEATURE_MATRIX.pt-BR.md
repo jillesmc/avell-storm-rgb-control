@@ -55,6 +55,15 @@ USB `048d:7000`, `048d:7001`, ou string de produto contendo `8233`.
 > [!NOTE]
 > A barra de LED só recebe brilho e velocidade **dentro de um report de efeito**. Por isso os dois comandos reaplicam um efeito (`--with-effect`).
 
+## 🧭 Estado salvo (os dois dispositivos)
+
+A GUI lembra os dispositivos conectados e o último visual deles no `state.json`. A CLI consegue ler.
+
+| Capacidade | Limites / notas | CLI |
+|------------|-----------------|-----|
+| Mostrar o estado salvo | texto ou `--json` | `state show [--json]` |
+| Restaurar sem a GUI | barra de LED e depois teclado; só dispositivos lembrados; nunca grava o arquivo | `state restore [--kind all\|keyboard\|led-bar] [--no-animation] [--json]` |
+
 ## 🛠️ Referência USB
 
 - Teclado: vendor `048d`, produtos listados acima.
