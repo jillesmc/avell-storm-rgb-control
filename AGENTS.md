@@ -40,7 +40,8 @@ Source of truth for agents working in this repo. Folder-specific rules live in
 ## Documentation conventions
 
 - Every Markdown doc is a **bilingual pair**: `NAME.md` (English) + `NAME.pt-BR.md` (Brazilian Portuguese), side by side.
-  **Update both in the same change.** Exceptions (English only): `AGENTS.md`, `CLAUDE.md`, `LICENSE`, `NOTICE`.
+  **Update both in the same change.** Exceptions (English only): `AGENTS.md`, `CLAUDE.md`, `LICENSE`, `NOTICE`,
+  and spec-cycle artifacts under `.compozy/tasks/` (specs, stories, tests, ADRs, task files).
 - ADHD-friendly style: language link, ⏱️ reading time, TL;DR (≤ 3 bullets), "Read this if…", short sections,
   tables and lists over prose, GitHub callouts, small Mermaid diagrams (≤ ~12 nodes), files ≤ ~250 lines.
   Full rules: [`docs/README.md`](docs/README.md).

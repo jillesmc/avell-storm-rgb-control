@@ -62,6 +62,7 @@ Estas regras valem para todo doc Markdown do repo.
 | Arquivo | Por quê |
 |---------|---------|
 | `AGENTS.md`, `CLAUDE.md` (raiz, `src/app/`, `src/app/ui/`) | Carregados pelo nome exato como instrução de agente; um segundo idioma duplicaria as regras |
+| `.compozy/tasks/**` (specs, histórias, testes, ADRs, tasks) | Artefatos de trabalho do pipeline spec-cycle, consumidos por agentes; dois idiomas dobrariam o volume e abririam espaço para divergência entre contratos |
 | `LICENSE`, `NOTICE` | Texto legal |
 
 **Estilo (amigável para TDAH)**

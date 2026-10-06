@@ -63,6 +63,7 @@ These rules apply to every Markdown doc in the repo.
 |------|-----|
 | `AGENTS.md`, `CLAUDE.md` (root, `src/app/`, `src/app/ui/`) | Loaded by exact filename as agent instructions; a second language would duplicate rules |
 | `LICENSE`, `NOTICE` | Legal text |
+| `.compozy/tasks/**` (specs, stories, tests, ADRs, task files) | Working artifacts of the spec-cycle pipeline, consumed by agents; two languages would double them and invite contract drift |
 
 **Style (ADHD-friendly)**
 
