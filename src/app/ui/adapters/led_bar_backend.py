@@ -109,6 +109,7 @@ class LedBarBackend(QObject):
     @Slot(int, int)
     def connectAt(self, bus: int, addr: int) -> None:
         def task() -> None:
+            self._close_device()
             try:
                 self._bar = open_led_bar_at(bus, addr)
             except Exception as e:
@@ -125,7 +126,7 @@ class LedBarBackend(QObject):
     @Slot()
     def disconnectDevice(self) -> None:
         def task() -> None:
-            self._bar = None
+            self._close_device()
             self._bus = -1
             self._addr = -1
             self.connectedChanged.emit()
@@ -133,6 +134,15 @@ class LedBarBackend(QObject):
             self._refresh_info()
 
         self._worker.submit(task)
+
+    def _close_device(self) -> None:
+        """USB thread: release the current handle so the next open does not hit EBUSY."""
+        bar, self._bar = self._bar, None
+        if bar is not None:
+            try:
+                bar.close()
+            except Exception:  # noqa: BLE001 - device may already be gone
+                pass
 
     @Slot()
     def refreshInspect(self) -> None:

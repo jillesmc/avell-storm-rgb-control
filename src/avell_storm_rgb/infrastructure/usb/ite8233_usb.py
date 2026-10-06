@@ -89,6 +89,11 @@ class Ite8233UsbDevice:
             [CMD_EFFECT, 0x22, effect, self.speed, self.brightness, num_colors, 0x00, 0x00]
         )
 
+    def close(self) -> None:
+        """Release the USB handle now (see ``Ite8291UsbDevice.close``)."""
+        if self._device is not None:
+            usb.util.dispose_resources(self._device)
+
     def power_on(self) -> None:
         self._send([CMD_EFFECT, 0x01, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00])
         self._send([CMD_INIT, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01])

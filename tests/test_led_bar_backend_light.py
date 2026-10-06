@@ -112,3 +112,19 @@ def test_restore_never_persists(worker, monkeypatch) -> None:
     assert persisted == []
     assert fake.calls == [("power_off",)]
     assert lb.lightOn is False
+
+
+def test_disconnect_and_reconnect_release_the_usb_handle(worker, monkeypatch) -> None:
+    first, second = FakeLedBar(), FakeLedBar()
+    devices = iter([first, second, FakeLedBar()])
+    monkeypatch.setattr("app.ui.adapters.led_bar_backend.open_led_bar_at", lambda bus, addr: next(devices))
+    lb = LedBarBackend(worker)
+    lb.connectAt(1, 2)
+    drain(worker)
+    lb.disconnectDevice()
+    drain(worker)
+    assert first.names()[-1] == "close"
+    lb.connectAt(1, 2)
+    lb.connectAt(1, 2)
+    drain(worker)
+    assert "close" in second.names()

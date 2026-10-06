@@ -290,6 +290,15 @@ class Ite8291UsbDevice:
         effect[effect_attrs.SPEED] = 11
         self.set_effect(effect)
 
+    def close(self) -> None:
+        """Release claimed interfaces and the USB handle now.
+
+        pyusb keeps a reference cycle (device -> active configuration -> device), so
+        dropping the object does not free the handle until the cyclic GC runs; a new
+        handle opened before that gets ``[Errno 16] Resource busy``.
+        """
+        usb.util.dispose_resources(self.channel.dev)
+
     def turn_off(self) -> None:
         self._set_effect_impl(control=0x01)
 

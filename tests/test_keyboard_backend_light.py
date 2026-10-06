@@ -267,3 +267,20 @@ def test_restored_per_key_look_maps_cells_back_to_key_ids(worker, monkeypatch) -
     other.restore(KeyboardState("048d:600b", look=look))
     drain(worker)
     assert other.keyHexById("esc") == "#ff0000"
+
+
+def test_disconnect_and_reconnect_release_the_usb_handle(worker, monkeypatch) -> None:
+    """Regression: reconnect hit [Errno 16] Resource busy because the old handle stayed claimed."""
+    first, second = FakeKeyboard(), FakeKeyboard()
+    devices = iter([first, second])
+    monkeypatch.setattr("app.ui.adapters.keyboard_backend.open_keyboard", lambda **kw: next(devices))
+    kb = KeyboardBackend(worker)
+    kb.connectAt(1, 2)
+    drain(worker)
+    kb.disconnectDevice()
+    drain(worker)
+    assert first.names()[-1] == "close"
+    kb.connectAt(1, 2)
+    kb.connectAt(1, 2)  # reconnect over a live connection closes the previous handle too
+    drain(worker)
+    assert "close" in second.names()

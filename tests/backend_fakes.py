@@ -42,6 +42,9 @@ class FakeKeyboard:
     def get_effect(self) -> list[int]:
         return list(self.effect)
 
+    def close(self) -> None:
+        self._rec("close")
+
     def turn_off(self) -> None:
         self._rec("turn_off")
         self.off = True
@@ -100,6 +103,9 @@ class FakeLedBar:
         self.calls.append((name, *args))
         if self.journal is not None:
             self.journal.append((type(self).__name__, name))
+
+    def close(self) -> None:
+        self._rec("close")
 
     def power_on(self) -> None:
         self._rec("power_on")

@@ -35,6 +35,8 @@ Device logic belongs in the core package (`src/avell_storm_rgb/`). Reuse `applic
   (`look`, `palette`, `brightness`, `power` keys). `restore()` never emits it.
 - Keyboard look changes, light-off and disconnect must stop a running animation / follow-screen first (`_stop_long_task()`),
   and each long task gets its own stop event (`_new_long_task_stop()`).
+- On disconnect / reconnect, **close the driver** (`close()` → `usb.util.dispose_resources`) on the USB thread before dropping it.
+  pyusb keeps a reference cycle, so an unreleased handle keeps the interface claimed (`[Errno 16] Resource busy`).
 - When adding a backend action, add a test with the fakes in `tests/backend_fakes.py` (see `tests/test_*_backend_light.py`).
 
 ## Don't

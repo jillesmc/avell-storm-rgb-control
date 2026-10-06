@@ -972,6 +972,7 @@ class KeyboardBackend(QObject):
     @Slot(int, int)
     def connectAt(self, bus: int, addr: int) -> None:
         def task() -> None:
+            self._close_device()
             try:
                 self._kb = open_keyboard(bus_addr=(bus, addr), debug=self._debug)
             except Exception as e:
@@ -993,7 +994,7 @@ class KeyboardBackend(QObject):
         self._reset_brightness_context()
 
         def task() -> None:
-            self._kb = None
+            self._close_device()
             self._bus = -1
             self._addr = -1
             self._device_mapping_key = "keyboard:unknown"
@@ -1009,6 +1010,15 @@ class KeyboardBackend(QObject):
             self.calibrationChanged.emit()
 
         self._worker.submit(task)
+
+    def _close_device(self) -> None:
+        """USB thread: release the current handle so the next open does not hit EBUSY."""
+        kb, self._kb = self._kb, None
+        if kb is not None:
+            try:
+                kb.close()
+            except Exception:  # noqa: BLE001 - device may already be gone
+                pass
 
     def _do_inspect_emit(self) -> None:
         if self._kb is None:
