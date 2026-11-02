@@ -25,6 +25,7 @@
 | Ver qual funcionalidade é suportada onde | [FEATURE_MATRIX](FEATURE_MATRIX.pt-BR.md) | ~2 min |
 | Entender efeitos, parâmetros e exclusões por dispositivo | [DEVICE_FEATURES_DEEP_DIVE](DEVICE_FEATURES_DEEP_DIVE.pt-BR.md) | ~10 min |
 | Escrever um script de animação por tecla | [assets/animations/README](../assets/animations/README.pt-BR.md) | ~3 min |
+| Controlar lâmpadas inteligentes Tuya (opcional) | [BULBS](BULBS.pt-BR.md) | ~6 min |
 | Decifrar um termo | [GLOSSARY](GLOSSARY.pt-BR.md) | consulta |
 
 > [!TIP]
@@ -43,6 +44,7 @@ flowchart LR
     idx --> dev[DEVELOPMENT]
     dev --> arch
     idx --> glo[GLOSSARY]
+    ov --> bulbs[BULBS]
 ```
 
 ---
@@ -86,3 +88,4 @@ Estas regras valem para todo doc Markdown do repo.
 | Uma página ou aba da GUI | Tour da GUI no OVERVIEW, "UI ↔ backend" no DEVICE_FEATURES_DEEP_DIVE |
 | Variáveis de ambiente, extras, setup | DEVELOPMENT, README da raiz |
 | Um conceito ou nome novo | GLOSSARY |
+| Comportamento das lâmpadas, CLI `bulb`, `tuya_devices.json` ou `devices.bulbs` no `state.json` | BULBS, README da raiz, FEATURE_MATRIX, ARCHITECTURE (quem grava), FLOWS §9 |

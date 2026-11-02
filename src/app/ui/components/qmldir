@@ -7,3 +7,4 @@ EffectCard 1.0 EffectCard.qml
 CalibrationDeviceGrid 1.0 CalibrationDeviceGrid.qml
 KeyboardLayoutView 1.0 KeyboardLayoutView.qml
 SliderSpinRow 1.0 SliderSpinRow.qml
+BulbListPanel 1.0 BulbListPanel.qml

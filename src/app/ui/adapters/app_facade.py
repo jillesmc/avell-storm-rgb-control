@@ -16,13 +16,17 @@ def _package_version() -> str:
     except PackageNotFoundError:
         return "0.0.0-dev"
 
+from avell_storm_rgb.application.bulb_facade import tuya_available
+from avell_storm_rgb.application.bulb_inventory import BulbInventory, InventoryFileError
 from avell_storm_rgb.application.device_state import (
+    BulbState,
     DeviceState,
     DeviceStateStore,
     KeyboardState,
     LedBarState,
     StateFileError,
 )
+from avell_storm_rgb.domain.bulb_color import average_rgb
 from avell_storm_rgb.domain.keyboard_solid_colors import SOLID_COLOR_NAMES
 from avell_storm_rgb.infrastructure.usb.ite8291_usb import (
     KEYBOARD_DIRECTIONS,
@@ -33,7 +37,9 @@ from avell_storm_rgb.infrastructure.usb.ite8291_usb import (
 from avell_storm_rgb.infrastructure.usb.ite8233_usb import LED_BAR_EFFECT_CODES
 
 from app.core import xdg_autostart
+from app.core.screen_hub import ScreenFrameHub
 from app.ui.adapters.app_state import AppState
+from app.ui.adapters.bulbs_backend import BulbsBackend
 from app.ui.adapters.device_model import DeviceListModel
 from app.ui.adapters.keyboard_backend import KeyboardBackend
 from app.ui.adapters.led_bar_backend import LedBarBackend
@@ -85,7 +91,8 @@ class AppFacade(QObject):
         self._worker = UsbWorker(self)
         self._state = AppState(self._worker, self)
         self._devices = DeviceListModel(self)
-        self._keyboard = KeyboardBackend(self._worker, self)
+        self._screen_hub = ScreenFrameHub(parent=self)  # one capture per process (BR-16)
+        self._keyboard = KeyboardBackend(self._worker, self, screen_hub=self._screen_hub)
         self._led = LedBarBackend(self._worker, self)
         self._anim_preview = ""
         self._anim_path = ""
@@ -101,6 +108,19 @@ class AppFacade(QObject):
         self._needs_migration = False
         self._load_saved_state()
 
+        # Bulbs: inert backend when the optional ``tuya`` extra is missing (BR-17).
+        self._bulbs_available = tuya_available()
+        self._bulbs = BulbsBackend(
+            self._state,
+            saved=lambda: self._saved.bulbs,
+            available=self._bulbs_available,
+            follow_sources=self._follow_sources,
+            screen_hub=self._screen_hub,
+            parent=self,
+        )
+        # Direct: same (GUI) thread, so the saved state is current before the backend republishes.
+        self._bulbs.persistUpdate.connect(self._on_bulb_persist)
+
         queued = Qt.ConnectionType.QueuedConnection
         for kind, backend in self._backends():
             backend.connectedChanged.connect(self._bump_device_epoch, queued)
@@ -114,6 +134,11 @@ class AppFacade(QObject):
                 lambda changes, k=kind: self._on_persist(k, changes), queued
             )
         self._keyboard.restoreWarning.connect(self._state.reportError, queued)
+        self._screen_hub.failed.connect(self._state.reportError)
+        # Follow sources (slice 2): keyboard writes arrive from the USB thread.
+        self._keyboard.colorsSent.connect(
+            lambda r, g, b: self._bulbs.feed_colour("keyboard", (r, g, b)), queued
+        )
 
     @Property(str, constant=True)
     def applicationVersion(self) -> str:
@@ -239,6 +264,19 @@ class AppFacade(QObject):
     def devices(self) -> DeviceListModel:
         return self._devices
 
+    @Property(bool, constant=True)
+    def bulbsAvailable(self) -> bool:
+        return self._bulbs_available
+
+    @Property(QObject, constant=True)
+    def bulbs(self) -> BulbsBackend:
+        return self._bulbs
+
+    @Slot(bool)
+    def setWindowVisible(self, visible: bool) -> None:
+        """main.qml reports window visibility; drives the bulb refresh cadence (BR-8)."""
+        self._bulbs.windowVisible = bool(visible)
+
     @Property(QObject, constant=True)
     def keyboard(self) -> KeyboardBackend:
         return self._keyboard
@@ -338,6 +376,7 @@ class AppFacade(QObject):
                 retried = True
         if retried:
             self.deviceMemoryChanged.emit()
+        self._bulbs.refresh()
 
     @Slot(str, int, int)
     def connectDevice(self, kind: str, bus: int, addr: int) -> None:
@@ -372,10 +411,13 @@ class AppFacade(QObject):
         for kind in ("led_bar", "keyboard"):
             self._restore_kind(kind)
         self.deviceMemoryChanged.emit()
+        self._bulbs.refresh()  # reads only (BR-6)
 
     @Slot()
     def shutdown(self) -> None:
         self._keyboard.shutdownCalibrationInput()
+        self._bulbs.shutdown()
+        self._screen_hub.shutdown()
         self._worker.shutdown()
 
     # --- remembered devices (QML) -------------------------------------------------
@@ -427,7 +469,24 @@ class AppFacade(QObject):
         else:
             self._saved = replace(self._saved, led_bar=value)
 
+    def _pruned(self, state: DeviceState) -> DeviceState:
+        """Drop saved bulbs missing from the inventory, only when that is provably safe (M5).
+
+        An absent extra, or a missing / unreadable inventory, keeps every entry unchanged.
+        """
+        if not state.bulbs or not tuya_available():
+            return state
+        inventory = BulbInventory()
+        if not inventory.exists():
+            return state
+        try:
+            ids = {record.id for record in inventory.load()}
+        except InventoryFileError:
+            return state
+        return replace(state, bulbs=tuple(b for b in state.bulbs if b.id in ids))
+
     def _save(self) -> None:
+        self._saved = self._pruned(self._saved)
         try:
             self._store.save(self._saved)
         except OSError as e:
@@ -547,3 +606,46 @@ class AppFacade(QObject):
         self._save()
         if "power" in fields and fields["power"] != saved.power:
             self.savedLightChanged.emit()
+        if kind == "led_bar":
+            self._feed_led_bar_colour()
+
+    def _follow_sources(self) -> list[str]:
+        """Follow sources the runtime supports now (absent, not disabled, otherwise)."""
+        out = []
+        if self._keyboard.connected:
+            out.append("keyboard")
+        if self._keyboard.followScreenAvailable:
+            out.append("screen")
+        if self._led.connected:
+            out.append("led_bar")
+        return out
+
+    def _feed_led_bar_colour(self) -> None:
+        """LED bar source: static average of the applied palette while its light is on (BR-14)."""
+        saved = self._saved.led_bar
+        if saved is None or saved.power != "on" or saved.look is None or not saved.look.palette:
+            return
+        self._bulbs.feed_colour("led_bar", average_rgb(saved.look.palette))
+
+    def _on_bulb_persist(self, bulb_id: str, changes: object) -> None:
+        """Only writer of ``devices.bulbs`` (remembered / follow / remove)."""
+        if not isinstance(changes, dict):
+            return
+        bulbs = {b.id: b for b in self._saved.bulbs}
+        current = bulbs.get(bulb_id)
+        if changes.get("remove"):
+            if current is None:
+                return
+            del bulbs[bulb_id]
+        else:
+            new = current or BulbState(bulb_id, remembered=False)
+            if "remembered" in changes:
+                new = replace(new, remembered=bool(changes["remembered"]))
+            if "follow" in changes:
+                new = replace(new, follow=changes["follow"])
+            if new == current:
+                return
+            bulbs[bulb_id] = new
+        self._saved = replace(self._saved, bulbs=tuple(bulbs.values()))
+        self._save()
+        self.deviceMemoryChanged.emit()

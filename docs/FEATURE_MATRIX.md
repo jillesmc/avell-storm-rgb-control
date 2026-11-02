@@ -64,6 +64,22 @@ The GUI remembers connected devices and their last look in `state.json`. The CLI
 | Show the saved state | human or `--json` | `state show [--json]` |
 | Restore without the GUI | LED bar then keyboard; remembered devices only; never writes the file | `state restore [--kind all\|keyboard\|led-bar] [--no-animation] [--json]` |
 
+## 🧭 Tuya bulbs (optional `tuya` extra)
+
+| Feature | CLI | GUI |
+|---------|-----|-----|
+| Import tinytuya `devices.json` | `bulb import` | Devices → Import Tuya devices… |
+| List / status | `bulb list`, `bulb status` | Devices rows, page status line |
+| On / off / toggle | `bulb on\|off\|toggle` | Sidebar + page switch |
+| Brightness 1–100 % | `bulb bright` | Page slider |
+| White temperature 0–100 | `bulb white --temp` | Page slider |
+| Colour RGB | `bulb color R G B` | Page colour well |
+| Remember / forget / remove | `bulb remove` (remove only) | Connect / Disconnect / Forget / Remove |
+| Follow keyboard / screen / LED bar | ❌ (needs the running GUI) | Page **Follow** |
+| Saved state | `state show` lists bulbs | `state.json` `devices.bulbs` (remembered + follow; no colour) |
+
+Details → [BULBS](BULBS.md).
+
 ## 🛠️ USB reference
 
 - Keyboard: vendor `048d`, products listed above.

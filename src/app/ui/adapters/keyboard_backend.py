@@ -24,10 +24,11 @@ from avell_storm_rgb.application.device_state import (
 )
 from avell_storm_rgb.application.screen_follow_dispatch import (
     follow_screen_runtime_available,
-    run_screen_follow_auto,
 )
 from avell_storm_rgb.application.screen_follow_session import is_wayland_session
+from avell_storm_rgb.application.screen_follow_frame import apply_pil_rgb_image_to_keyboard
 from avell_storm_rgb.domain.anim_dsl import run_animation_lines
+from avell_storm_rgb.domain.bulb_color import average_rgb
 from avell_storm_rgb.domain.keyboard_solid_colors import SOLID_COLOR_NAMES
 from avell_storm_rgb.domain.keyboard_layouts import resolve_usb_default_profile
 from avell_storm_rgb.domain import per_key_grid as pkg_per_key_grid
@@ -56,6 +57,7 @@ from avell_storm_rgb.infrastructure.usb.ite8291_usb import (
     NUM_ROWS,
 )
 
+from app.core.screen_hub import ScreenFrameHub
 from app.core.usb_worker import UsbWorker
 from app.core.calibration_evdev_capture import CalibrationEvdevCapture, evdev_available
 from app.ui.adapters.keyboard_mapping_store import (
@@ -99,6 +101,32 @@ def _agent_debug_log(hypothesis_id: str, location: str, message: str, data: dict
 # #endregion
 
 
+class _ColourTap:
+    """Forwards every attribute to the real keyboard driver; reports colours it sent (BR-14).
+
+    Only a *successful* ``set_color`` / ``set_key_colors`` reports; firmware effects,
+    palette slots and light-off do not, so a following bulb keeps its colour.
+    """
+
+    def __init__(self, driver, on_colour) -> None:
+        self._driver = driver
+        self._on_colour = on_colour
+
+    def __getattr__(self, name):
+        return getattr(self._driver, name)
+
+    def set_color(self, color, *args, **kwargs):
+        result = self._driver.set_color(color, *args, **kwargs)
+        self._on_colour(tuple(int(c) for c in color))
+        return result
+
+    def set_key_colors(self, color_map=None, *args, **kwargs):
+        result = self._driver.set_key_colors(color_map, *args, **kwargs)
+        if color_map:
+            self._on_colour(average_rgb(color_map.values()))
+        return result
+
+
 class _BrightnessTarget(enum.IntEnum):
     """Whether brightness slider should also refresh the firmware effect packet."""
 
@@ -126,6 +154,8 @@ class KeyboardBackend(QObject):
     lightChanged = Signal()
 
     persistUpdate = Signal(object)
+    #: Average colour of each solid/per-key write that reached the keyboard (USB thread → queue it).
+    colorsSent = Signal(int, int, int)
     restoreWarning = Signal(str)
     connectFailed = Signal(str)
 
@@ -156,8 +186,21 @@ class KeyboardBackend(QObject):
         7: (255, 0, 255),
     }
 
-    def __init__(self, worker: UsbWorker, parent: QObject | None = None) -> None:
+    def __init__(
+        self,
+        worker: UsbWorker,
+        parent: QObject | None = None,
+        *,
+        screen_hub: ScreenFrameHub | None = None,
+    ) -> None:
         super().__init__(parent)
+        # Follow-screen is a subscriber of the one shared capture (ADR-004).
+        self._screen_hub = screen_hub if screen_hub is not None else ScreenFrameHub(parent=self)
+        self._screen_hub.frame.connect(self._on_screen_frame)
+        self._screen_lock = threading.Lock()
+        self._screen_latest = None
+        self._screen_task_pending = False
+        self._screen_first_frame = True
         self.followScreenAvailable = follow_screen_runtime_available()
         self._follow_screen_wayland_picker = is_wayland_session()
         self._worker = worker
@@ -950,6 +993,9 @@ class KeyboardBackend(QObject):
     def _stop_long_task(self) -> None:
         """Stop the running or queued animation / follow-screen (GUI thread, before submitting)."""
         self._follow_stop.set()
+        self._screen_hub.unsubscribe(self)
+        with self._screen_lock:
+            self._screen_latest = None
 
     def _new_long_task_stop(self) -> threading.Event:
         self._stop_long_task()
@@ -974,7 +1020,10 @@ class KeyboardBackend(QObject):
         def task() -> None:
             self._close_device()
             try:
-                self._kb = open_keyboard(bus_addr=(bus, addr), debug=self._debug)
+                self._kb = _ColourTap(
+                    open_keyboard(bus_addr=(bus, addr), debug=self._debug),
+                    lambda rgb: self.colorsSent.emit(*rgb),
+                )
             except Exception as e:
                 self.connectFailed.emit(f"{type(e).__name__}: {e}")
                 raise
@@ -1356,22 +1405,32 @@ class KeyboardBackend(QObject):
     @Slot(bool, int, int, int, int)
     def startFollowScreen(self, fullscreen: bool, x: int, y: int, w: int, h: int) -> None:
         self._reset_brightness_context()
-        stop = self._new_long_task_stop()
+        self._new_long_task_stop()
+        self._screen_first_frame = True
+        region = {} if fullscreen else {"offset_x": x, "offset_y": y, "width": w, "height": h}
+        self._screen_hub.subscribe(self, **region)
+
+    def _on_screen_frame(self, image: object) -> None:
+        """GUI thread: coalesce frames (latest wins) into one USB task at a time."""
+        if not self._screen_hub.is_subscribed(self):
+            return
+        stop = self._follow_stop
+        with self._screen_lock:
+            self._screen_latest = image
+            if self._screen_task_pending:
+                return
+            self._screen_task_pending = True
 
         def task() -> None:
-            if self._kb is None or stop.is_set():
+            with self._screen_lock:
+                frame, self._screen_latest = self._screen_latest, None
+                self._screen_task_pending = False
+            if frame is None or stop.is_set() or self._kb is None:
                 return
-            if fullscreen:
-                run_screen_follow_auto(self._kb, stop_event=stop)
-            else:
-                run_screen_follow_auto(
-                    self._kb,
-                    offset_x=x,
-                    offset_y=y,
-                    width=w,
-                    height=h,
-                    stop_event=stop,
-                )
+            if self._screen_first_frame:
+                self._kb.enable_user_mode()
+                self._screen_first_frame = False
+            apply_pil_rgb_image_to_keyboard(self._kb, frame, enable_user_mode_flag=False)
 
         self._worker.submit(task, show_busy=False)
 

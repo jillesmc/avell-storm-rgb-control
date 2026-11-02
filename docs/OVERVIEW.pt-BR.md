@@ -101,6 +101,17 @@ flowchart LR
 | `gui` | `PySide6` | QML do **Kirigami 6**, de preferência **qqc2-breeze-style**, uma bandeja do sistema |
 | `screen` | `python-xlib`, `Pillow`, `pipewire-capture`, `numpy` | Sessão **X11**, **ou** Wayland + **xdg-desktop-portal** + **PipeWire** |
 
+## 🧭 Lâmpadas inteligentes Tuya (opcional)
+
+| | |
+|-|-|
+| **Instalar** | `uv sync --extra tuya` (a GUI também precisa de `--extra gui`). Sem ele, nenhuma tela de lâmpada existe |
+| **Fatia 1** | Importar o `devices.json` do tinytuya; Connect/Disconnect/Remove; interruptor na sidebar; página com brilho, temperatura do branco, cor; CLI `bulb …` |
+| **Fatia 2** | **Follow**: a lâmpada pega a cor do teclado, da tela (uma captura compartilhada) ou da barra de LED |
+| **Nunca** | Altera uma lâmpada ao abrir, usa a nuvem durante o uso, ou mostra uma chave local |
+
+Detalhes → [BULBS](BULBS.pt-BR.md).
+
 ## ⚠️ Pegadinhas para saber cedo
 
 - **A "cor" do efeito de firmware não é RGB.** É um *índice* para os 7 slots da paleta (ou `random`/`none`). Veja [GLOSSARY](GLOSSARY.pt-BR.md#teclado).

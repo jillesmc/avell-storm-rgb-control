@@ -10,6 +10,8 @@ import sys
 import time
 from collections.abc import Callable
 
+from avell_storm_rgb.adapters.cli.bulb_cli import INVENTORY_UNREADABLE, register_bulb_group
+from avell_storm_rgb.application.bulb_inventory import BulbInventory, InventoryFileError
 from avell_storm_rgb.application.device_facade import (
     describe_keyboard_usb_devices,
     describe_led_bar_usb_devices,
@@ -18,6 +20,7 @@ from avell_storm_rgb.application.device_facade import (
 )
 from avell_storm_rgb.application.device_state import (
     AnimationLook,
+    BulbState,
     DeviceState,
     DeviceStateStore,
     KeyboardState,
@@ -290,8 +293,49 @@ def _cmd_led_bar_inspect(args: argparse.Namespace) -> int:
 
 # --- state show / restore ---------------------------------------------------------
 
-_KIND_LABEL = {"keyboard": "keyboard", "led_bar": "led-bar"}
+_KIND_LABEL = {"keyboard": "keyboard", "led_bar": "led-bar", "bulb": "bulb"}
 _PREFIX_WIDTH = 44  # "keyboard  " + "048d:ce00  " + "remembered  " + "light on   "
+_BULB_NAME_WIDTH = 12
+_BULB_NOT_IMPORTED = "(not imported)"
+_BULB_UNREADABLE = "(inventory unreadable)"
+
+
+def _bulb_line(bulb: BulbState, name: str | None, note: str | None = None) -> str:
+    """One ``bulb`` line: name + id + state + follow, or an id + placeholder note."""
+    label = f"{_KIND_LABEL['bulb']:<10}"
+    if name is None:
+        return f"{label}{bulb.id}  {note}"
+    state = "remembered" if bulb.remembered else "forgotten"
+    return f"{label}{name:<{_BULB_NAME_WIDTH}}{bulb.id}  {state:<12}follow {bulb.follow}"
+
+
+def _print_saved_bulbs(state: DeviceState) -> int:
+    """Print the saved bulb lines, reading the inventory directly (no ``tuya`` extra).
+
+    Missing inventory → ``(not imported)`` per bulb, exit 0. Unreadable inventory →
+    the device lines have already printed, each bulb line says ``(inventory
+    unreadable)``, the inventory error goes to stderr and the exit code is 3.
+    """
+    inventory = BulbInventory()
+    try:
+        records = inventory.load()
+    except InventoryFileError as e:
+        for bulb in state.bulbs:
+            print(_bulb_line(bulb, None, _BULB_UNREADABLE))
+        print(INVENTORY_UNREADABLE.format(reason=e.reason, path=e.path), file=sys.stderr)
+        return 3
+    if not inventory.exists():
+        for bulb in state.bulbs:
+            print(_bulb_line(bulb, None, _BULB_NOT_IMPORTED))
+        return 0
+    names = {record.id: record.name for record in records}
+    for bulb in state.bulbs:
+        name = names.get(bulb.id)
+        if name is None:
+            print(_bulb_line(bulb, None, _BULB_NOT_IMPORTED))
+        else:
+            print(_bulb_line(bulb, name))
+    return 0
 
 
 def _load_state(store: DeviceStateStore) -> DeviceState | None:
@@ -339,7 +383,7 @@ def _cmd_state_show(args: argparse.Namespace) -> int:
                 extras.append("palette slots " + ", ".join(str(s) for s in sorted(saved.palette)))
             if extras:
                 print(" " * _PREFIX_WIDTH + " · ".join(extras))
-    return 0
+    return _print_saved_bulbs(state)
 
 
 def _play_animation_foreground(kb, look: AnimationLook) -> None:
@@ -599,6 +643,9 @@ def _build_parser() -> argparse.ArgumentParser:
     st_re.add_argument("--no-animation", action="store_true", help="Skip a saved animation")
     st_re.add_argument("--json", action="store_true", help="Machine-readable output")
     st_re.set_defaults(_handler=_cmd_state_restore)
+
+    # bulb (task_03; verbs live in bulb_cli so this file stays thin)
+    register_bulb_group(sub)
 
     return p
 

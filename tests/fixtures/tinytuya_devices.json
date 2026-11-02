@@ -1,0 +1,34 @@
+[
+  {
+    "name": "Quarto",
+    "id": "eb1a2b3c4d5e6f70819201",
+    "key": "q6R!x2_example_01",
+    "mac": "10:d5:61:00:00:01",
+    "uuid": "uuid-fictional-0001",
+    "category": "dj",
+    "product_name": "Fictional Bulb A",
+    "version": "3.3",
+    "ip": "192.168.0.21"
+  },
+  {
+    "name": "Escritório",
+    "id": "eb1a2b3c4d5e6f70819202",
+    "key": "q6R!x2_example_02",
+    "mac": "10:D5:61:00:00:02",
+    "uuid": "uuid-fictional-0002",
+    "category": "dj",
+    "product_name": "Fictional Bulb B",
+    "version": "",
+    "ip": "192.168.0.22"
+  },
+  {
+    "name": "Sala",
+    "id": "eb1a2b3c4d5e6f70819203",
+    "key": "q6R!x2_example_03",
+    "mac": "10:d5:61:00:00:03",
+    "uuid": "uuid-fictional-0003",
+    "category": "dj",
+    "product_name": "Fictional Bulb C",
+    "version": "3.3"
+  }
+]

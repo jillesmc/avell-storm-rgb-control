@@ -98,6 +98,17 @@ flowchart LR
 | `gui` | `PySide6` | **Kirigami 6** QML, ideally **qqc2-breeze-style**, a system tray |
 | `screen` | `python-xlib`, `Pillow`, `pipewire-capture`, `numpy` | **X11** session, **or** Wayland + **xdg-desktop-portal** + **PipeWire** |
 
+## 🧭 Tuya smart bulbs (optional)
+
+| | |
+|-|-|
+| **Install** | `uv sync --extra tuya` (GUI also needs `--extra gui`). Without it, no bulb surface exists |
+| **Slice 1** | Import the tinytuya `devices.json`; Connect/Disconnect/Remove; sidebar switch; page with brightness, white temperature, colour; `bulb …` CLI |
+| **Slice 2** | **Follow**: a bulb takes the colour of the keyboard, the screen (one shared capture) or the LED bar |
+| **Never** | Changes a bulb at start, uses the cloud at run time, or shows a local key |
+
+Details → [BULBS](BULBS.md).
+
 ## ⚠️ Gotchas worth knowing early
 
 - **The firmware effect "colour" is not RGB.** It is an *index* into the 7 palette slots (or `random`/`none`). See [GLOSSARY](GLOSSARY.md#keyboard).

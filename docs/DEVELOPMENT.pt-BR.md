@@ -72,6 +72,17 @@ SUBSYSTEM=="usb", ATTR{idVendor}=="048d", ATTR{idProduct}=="7001", MODE="0666"
 > [!WARNING]
 > `tests/test_gui_pages.py` importa PySide6 **antes** do `importorskip`. Sem o extra `gui`, a coleta **dá erro** em vez de pular. Rode `make sync-gui` (ou `sync-all`) antes do `make test`.
 
+### Testes das lâmpadas (sem hardware, sem rede)
+
+- `uv sync --extra gui --extra screen --extra tuya`, depois `make test`.
+- `FakeBulb` e `drain_bulbs` ficam em `tests/backend_fakes.py`; a fixture do wizard é `tests/fixtures/tinytuya_devices.json` (chaves fictícias).
+- O `tests/conftest.py` aponta `XDG_CONFIG_HOME` para uma pasta temporária e troca a captura de tela por um fake parado: **nenhum teste abre captura real, seletor do portal, lâmpada ou dispositivo USB**.
+- Nunca coloque uma chave local real ou IP de casa em teste ou doc.
+
+> [!TIP]
+> Se todo teste do `main.qml` for pulado, ou o `test_gui_pages.py` falhar com "incompatible Qt library", o Kirigami da distro é mais novo
+> que o PySide6 do venv. Rode com um PySide6 compatível: `uv run --with "PySide6==<versão do Qt da distro>" pytest -m "not hardware"`.
+
 ## 🛠️ Variáveis de ambiente e flags
 
 | Nome | Efeito |

@@ -206,6 +206,20 @@ uv run avell-storm-rgb led-bar brightness 80 --with-effect breathing
 5. **LED bar `static`:** change only speed at fixed brightness. Does the static animation change?
 6. **LED bar order:** `led-bar brightness` **always** re-applies `--with-effect` here (old scripts didn't send brightness alone).
 
+## 🏗️ Tuya bulb — mental model
+
+| DPS | Meaning | Values |
+|-----|---------|--------|
+| 20 | Power | `true` / `false` |
+| 21 | Mode | `white`, `colour` (`scene`, `music` only from the phone) |
+| 22 | White brightness | device 10–1000 ↔ 1–100 % |
+| 23 | White temperature | 0–1000 ↔ 0 warm … 100 cold |
+| 24 | Colour | HSV hex `HHHHSSSSVVVV`; V is the colour brightness (≥ 1 %) |
+
+- Brightness follows the mode: white → DPS 22, colour → V of DPS 24.
+- Explicit commands send DPS 20 (switch on). **Follow** sends only 21 + 24 (`push_colour`), never 20.
+- More → [BULBS](BULBS.md).
+
 ## 🧭 Main files
 
 | Topic | Path |

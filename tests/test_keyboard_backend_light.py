@@ -140,7 +140,6 @@ def test_ut046_failed_apply_not_saved(worker, monkeypatch) -> None:
 
 
 def test_ut047_follow_test_pattern_freeze_not_saved(worker, monkeypatch) -> None:
-    monkeypatch.setattr("app.ui.adapters.keyboard_backend.run_screen_follow_auto", lambda *a, **k: None)
     kb, persisted = _connected(worker, monkeypatch, FakeKeyboard())
     kb.startFollowScreen(True, 0, 0, 0, 0)
     kb.demoTestPattern()

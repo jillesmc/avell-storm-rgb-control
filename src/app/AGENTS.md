@@ -15,8 +15,8 @@ Architecture and flows: [`docs/ARCHITECTURE.md`](../../docs/ARCHITECTURE.md), [`
 
 | Path | Put here |
 |------|----------|
-| `core/` | Non-UI logic used by the GUI (`UsbWorker`, device enumeration) |
-| `ui/adapters/` | `QObject`s exposed to QML: `AppFacade` (`App`), `AppState`, `DeviceListModel`, `KeyboardBackend`, `LedBarBackend` |
+| `core/` | Non-UI logic used by the GUI (`UsbWorker`, `BulbWorker`, `ScreenFrameHub`, device enumeration) |
+| `ui/adapters/` | `QObject`s exposed to QML: `AppFacade` (`App`), `AppState`, `DeviceListModel`, `KeyboardBackend`, `LedBarBackend`, `BulbsBackend` (`App.bulbs`), `BulbListModel`, `BulbFollower` |
 | `ui/pages/`, `ui/components/` | QML (see `ui/AGENTS.md`) |
 
 Device logic belongs in the core package (`src/avell_storm_rgb/`). Reuse `application` / `domain`; don't duplicate it here.
@@ -38,6 +38,13 @@ Device logic belongs in the core package (`src/avell_storm_rgb/`). Reuse `applic
 - On disconnect / reconnect, **close the driver** (`close()` → `usb.util.dispose_resources`) on the USB thread before dropping it.
   pyusb keeps a reference cycle, so an unreleased handle keeps the interface claimed (`[Errno 16] Resource busy`).
 - When adding a backend action, add a test with the fakes in `tests/backend_fakes.py` (see `tests/test_*_backend_light.py`).
+- **Bulb I/O only through `BulbWorker.submit(bulb_id, fn)`** (per-bulb `bulb-*` threads). Never on the USB thread, never `AppState.busy`.
+  Worker results reach the row cache only in `BulbsBackend._on_op_done` (GUI thread); commands are never optimistic.
+- **One driver per bulb.** A persistent driver (`set_hold_open`) exists only while the bulb follows a source; close it on
+  follow → none, disconnect, forget, remove, unavailable and shutdown.
+- `devices.bulbs` changes go through `BulbsBackend.persistUpdate` → `AppFacade._on_bulb_persist`. Startup and refresh only read bulbs.
+- Screen capture has one owner, `ScreenFrameHub` (`subscribe`/`unsubscribe`). Don't start a capture anywhere else.
+- Follow writes only `push_colour` (never power), only while the last known power is on.
 
 ## Don't
 

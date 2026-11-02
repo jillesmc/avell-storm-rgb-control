@@ -76,6 +76,19 @@
 | **`persistUpdate`** | Backend signal emitted after a successful apply; the facade merges it into `state.json` | backends |
 | **Auto-connect (legacy)** | Old setting `ui/autoConnectOnStartup`; migrated once into remembered devices, then deleted | `LEGACY_AUTO_CONNECT_KEY` |
 
+## Bulbs
+
+| Term | Meaning | Where |
+|------|---------|-------|
+| **Tuya bulb** | Wi-Fi light controlled over the Tuya LAN protocol (3.3) | `infrastructure/tuya/bulb.py` |
+| **Local key** | Per-device secret from the tinytuya wizard; never displayed | `tuya_devices.json` |
+| **Inventory** | The app's own bulb file (0600): id, name, key, MAC, protocol, last IP | `application/bulb_inventory.py` |
+| **DPS** | Tuya data points: 20 power, 21 mode, 22 white brightness, 23 temperature, 24 colour | `domain/bulb_color.py` |
+| **Remembered bulb** | Saved with `remembered: true`; in the sidebar and read at start | `state.json` `devices.bulbs` |
+| **Follow** | A bulb takes the colour of a source: keyboard, screen or LED bar | `ui/adapters/bulb_follow.py` |
+| **`BulbWorker`** | Per-bulb serial queues (`bulb-*` threads), one driver per bulb | `app/core/bulb_worker.py` |
+| **`ScreenFrameHub`** | The one shared screen capture (keyboard + bulbs) | `app/core/screen_hub.py` |
+
 ## Tooling
 
 | Term | Meaning |

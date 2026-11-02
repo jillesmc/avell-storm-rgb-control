@@ -36,6 +36,16 @@ Kirigami.Page {
             onClearErrorClicked: App.state.clearError()
         }
 
+        /* Absent (not just hidden) without the optional tuya extra (BR-17). */
+        Loader {
+            Layout.fillWidth: true
+            Layout.leftMargin: Kirigami.Units.largeSpacing
+            Layout.rightMargin: Kirigami.Units.largeSpacing
+            active: App.bulbsAvailable
+            visible: active
+            sourceComponent: BulbListPanel {}
+        }
+
         Kirigami.Separator { Layout.fillWidth: true }
 
         Flow {

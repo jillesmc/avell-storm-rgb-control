@@ -64,6 +64,22 @@ A GUI lembra os dispositivos conectados e o último visual deles no `state.json`
 | Mostrar o estado salvo | texto ou `--json` | `state show [--json]` |
 | Restaurar sem a GUI | barra de LED e depois teclado; só dispositivos lembrados; nunca grava o arquivo | `state restore [--kind all\|keyboard\|led-bar] [--no-animation] [--json]` |
 
+## 🧭 Lâmpadas Tuya (extra opcional `tuya`)
+
+| Funcionalidade | CLI | GUI |
+|----------------|-----|-----|
+| Importar `devices.json` do tinytuya | `bulb import` | Devices → Import Tuya devices… |
+| Listar / status | `bulb list`, `bulb status` | Linhas em Devices, linha de status da página |
+| Ligar / desligar / alternar | `bulb on\|off\|toggle` | Interruptor da sidebar e da página |
+| Brilho 1–100 % | `bulb bright` | Slider da página |
+| Temperatura do branco 0–100 | `bulb white --temp` | Slider da página |
+| Cor RGB | `bulb color R G B` | Seletor de cor da página |
+| Lembrar / esquecer / remover | `bulb remove` (só remover) | Connect / Disconnect / Forget / Remove |
+| Follow teclado / tela / barra de LED | ❌ (precisa da GUI aberta) | **Follow** na página |
+| Estado salvo | `state show` lista as lâmpadas | `state.json` `devices.bulbs` (remembered + follow; sem cor) |
+
+Detalhes → [BULBS](BULBS.pt-BR.md).
+
 ## 🛠️ Referência USB
 
 - Teclado: vendor `048d`, produtos listados acima.
