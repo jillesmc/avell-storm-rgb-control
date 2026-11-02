@@ -70,7 +70,9 @@ SUBSYSTEM=="usb", ATTR{idVendor}=="048d", ATTR{idProduct}=="7001", MODE="0666"
 - Most of them **skip** when PySide6 or Kirigami is missing. A skip is not a regression.
 
 > [!WARNING]
-> `tests/test_gui_pages.py` imports PySide6 **before** its `importorskip`. Without the `gui` extra, collection **errors** instead of skipping. Run `make sync-gui` (or `sync-all`) before `make test`.
+> Several GUI test modules (e.g. `tests/test_gui_pages.py`) import PySide6 at the top. Without the `gui` extra, collection **errors** instead of skipping. Run `make sync-gui` (or `sync-all`) before `make test`.
+
+**CI:** `.github/workflows/tests.yml` runs `uv sync --locked --group dev --extra gui --extra tuya` + `pytest -m "not hardware"` on Python 3.10 and 3.12 (Ubuntu, offscreen, no Kirigami → QML smoke tests skip).
 
 ### Bulb tests (no hardware, no network)
 

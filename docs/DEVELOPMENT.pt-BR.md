@@ -70,7 +70,9 @@ SUBSYSTEM=="usb", ATTR{idVendor}=="048d", ATTR{idProduct}=="7001", MODE="0666"
 - A maioria **pula** quando falta PySide6 ou Kirigami. Pular não é regressão.
 
 > [!WARNING]
-> `tests/test_gui_pages.py` importa PySide6 **antes** do `importorskip`. Sem o extra `gui`, a coleta **dá erro** em vez de pular. Rode `make sync-gui` (ou `sync-all`) antes do `make test`.
+> Vários módulos de teste de GUI (ex.: `tests/test_gui_pages.py`) importam PySide6 no topo. Sem o extra `gui`, a coleta **dá erro** em vez de pular. Rode `make sync-gui` (ou `sync-all`) antes do `make test`.
+
+**CI:** `.github/workflows/tests.yml` roda `uv sync --locked --group dev --extra gui --extra tuya` + `pytest -m "not hardware"` no Python 3.10 e 3.12 (Ubuntu, offscreen, sem Kirigami → os testes de QML pulam).
 
 ### Testes das lâmpadas (sem hardware, sem rede)
 
