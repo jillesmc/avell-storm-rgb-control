@@ -74,6 +74,8 @@ SUBSYSTEM=="usb", ATTR{idVendor}=="048d", ATTR{idProduct}=="7001", MODE="0666"
 
 **CI:** `.github/workflows/tests.yml` roda `uv sync --locked --group dev --extra gui --extra tuya` + `pytest -m "not hardware"` no Python 3.10 e 3.12 (Ubuntu, offscreen, sem Kirigami → os testes de QML pulam).
 
+**Releases:** o [release-please](https://github.com/googleapis/release-please) (`.github/workflows/release.yml`) lê os [Conventional Commits](https://www.conventionalcommits.org/) do `master` (`feat:` → minor, `fix:` → patch, `feat!:` → major) e mantém aberto um PR de release que sobe a versão em `pyproject.toml`, `__version__`, `uv.lock` e `CHANGELOG.md`. Ao fazer merge dele, sai a tag `vX.Y.Z`, o release no GitHub e o wheel + sdist do `uv build` anexados. Faça squash-merge dos PRs com título convencional.
+
 ### Testes das lâmpadas (sem hardware, sem rede)
 
 - `uv sync --extra gui --extra screen --extra tuya`, depois `make test`.
