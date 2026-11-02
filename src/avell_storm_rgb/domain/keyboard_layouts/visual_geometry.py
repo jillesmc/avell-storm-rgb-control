@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, TypeAlias
 
 WIDE_GAP_TOKEN = "__wide_gap__"
 
@@ -152,7 +152,7 @@ def layout_bounds(placed: list[tuple[str, RectU]]) -> tuple[float, float, float,
     return (min_x, min_y, max_x, max_y)
 
 
-type RowSegment = tuple[str, float] | str
+RowSegment: TypeAlias = "tuple[str, float] | str"
 
 
 def place_row(
