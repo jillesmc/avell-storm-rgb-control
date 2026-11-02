@@ -37,5 +37,7 @@ def test_page_component_ready(qml_name: str) -> None:
 
     comp = QQmlComponent(engine)
     comp.loadUrl(QUrl.fromLocalFile(str(ui / "pages" / qml_name)))
+    if not comp.isReady() and "org.kde.kirigami" in comp.errorString():
+        pytest.skip("Kirigami / QML imports missing.")
     assert comp.isReady(), comp.errorString()
     facade.shutdown()

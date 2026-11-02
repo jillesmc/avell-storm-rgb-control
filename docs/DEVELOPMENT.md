@@ -70,7 +70,22 @@ SUBSYSTEM=="usb", ATTR{idVendor}=="048d", ATTR{idProduct}=="7001", MODE="0666"
 - Most of them **skip** when PySide6 or Kirigami is missing. A skip is not a regression.
 
 > [!WARNING]
-> `tests/test_gui_pages.py` imports PySide6 **before** its `importorskip`. Without the `gui` extra, collection **errors** instead of skipping. Run `make sync-gui` (or `sync-all`) before `make test`.
+> Several GUI test modules (e.g. `tests/test_gui_pages.py`) import PySide6 at the top. Without the `gui` extra, collection **errors** instead of skipping. Run `make sync-gui` (or `sync-all`) before `make test`.
+
+**CI:** `.github/workflows/tests.yml` runs `uv sync --locked --group dev --extra gui --extra tuya` + `pytest -m "not hardware"` on Python 3.10 and 3.12 (Ubuntu, offscreen, no Kirigami → QML smoke tests skip).
+
+**Releases:** [release-please](https://github.com/googleapis/release-please) (`.github/workflows/release.yml`) reads [Conventional Commits](https://www.conventionalcommits.org/) on `master` (`feat:` → minor, `fix:` → patch, `feat!:` → major) and keeps a release PR open that bumps `pyproject.toml`, `__version__`, `uv.lock` and `CHANGELOG.md`. Merging it tags `vX.Y.Z`, creates the GitHub release and attaches the `uv build` wheel + sdist. Squash-merge PRs with a conventional title.
+
+### Bulb tests (no hardware, no network)
+
+- `uv sync --extra gui --extra screen --extra tuya`, then `make test`.
+- `FakeBulb` and `drain_bulbs` live in `tests/backend_fakes.py`; the wizard fixture is `tests/fixtures/tinytuya_devices.json` (fictional keys).
+- `tests/conftest.py` pins `XDG_CONFIG_HOME` to a temp dir and replaces the screen capture with an idle fake: **no test opens a real capture, portal picker, bulb or USB device**.
+- Never put a real local key or home IP in a test or doc.
+
+> [!TIP]
+> If every `main.qml` test skips or `test_gui_pages.py` fails with "incompatible Qt library", the distro Kirigami is newer than the
+> venv's PySide6. Run with a matching PySide6: `uv run --with "PySide6==<distro Qt version>" pytest -m "not hardware"`.
 
 ## 🛠️ Environment variables and flags
 

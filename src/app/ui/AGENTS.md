@@ -41,7 +41,7 @@ Respect `QT_QUICK_CONTROLS_STYLE` / `AVELL_RGB_QQC2_STYLE`.
 
 ## Contract with Python
 
-- QML talks to Python only through `App` (`App.keyboard`, `App.ledBar`, `App.state`, `App.devices`). Never USB.
+- QML talks to Python only through `App` (`App.keyboard`, `App.ledBar`, `App.bulbs`, `App.state`, `App.devices`). Never USB or the network.
 - Debounce rapid control changes (pattern: 200 ms `Timer` + dirty flag, see `pages/KeyboardPage.qml`).
 - Re-read backend state through epoch properties (`keyGridEpoch`, `deviceConnectionEpoch`) instead of polling.
 

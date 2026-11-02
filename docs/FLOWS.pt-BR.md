@@ -184,3 +184,27 @@ flowchart LR
 - **Comentários:** linhas começando com `#`, e blocos aninhados `/* … */`.
 - **Loops:** na CLI, `--loop N` / `--forever`; na GUI, contador de loops + checkbox "forever". O **Stop** aciona o mesmo evento `_follow_stop` do follow-screen.
 - As coordenadas são **linhas do dispositivo** (linha 0 = base).
+
+## 🔁 9 · Lâmpadas Tuya
+
+**Connect (GUI):** `connectBulb(id)` → `BulbWorker` (thread `bulb-*`) abre o driver, lê `status()`, fecha →
+`opDone` (thread da GUI) → cache da linha → `persistUpdate(id, {"remembered": True})` → `AppFacade` grava o `state.json`.
+Inalcançável → nada é lembrado, `opFailed` → erro inline.
+
+**Abertura:** `restoreRememberedDevices()` restaura barra de LED e teclado, depois `bulbs.refresh()` **lê** cada lâmpada lembrada.
+Nenhum comando é enviado. Com a janela visível, um timer de 30 s repete as leituras.
+
+```mermaid
+flowchart LR
+    src[Tap do teclado / paleta da barra / ScreenFrameHub] --> fol[BulbFollower]
+    fol -->|tick 250 ms, cor mais recente, Δ ≥ 8, luz ligada| bw[Fila do BulbWorker]
+    bw --> drv[TuyaBulb mantido aberto]
+    drv -->|push_colour: DPS 21+24, nunca 20| bulb[(Lâmpada)]
+```
+
+**Follow:** a cor da fonte vai para o follower; cada tick envia no máximo uma cor, só se mudou o bastante e a última
+leitura diz que a lâmpada está ligada. Uma leitura a cada 5 s, enquanto segue, percebe a lâmpada desligada pelo celular.
+
+> [!WARNING]
+> Remover uma lâmpada que está seguindo para o follower e fecha o socket **antes** de gravar o inventário
+> (os dois vão para a fila FIFO daquela lâmpada).

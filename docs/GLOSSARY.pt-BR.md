@@ -76,6 +76,19 @@
 | **`persistUpdate`** | Sinal do backend emitido após uma aplicação bem-sucedida; a facade junta no `state.json` | backends |
 | **Auto-connect (legado)** | Antiga opção `ui/autoConnectOnStartup`; migrada uma vez para dispositivos lembrados e depois apagada | `LEGACY_AUTO_CONNECT_KEY` |
 
+## Lâmpadas
+
+| Termo | Significado | Onde |
+|-------|-------------|------|
+| **Tuya bulb** | Lâmpada Wi-Fi controlada pelo protocolo LAN da Tuya (3.3) | `infrastructure/tuya/bulb.py` |
+| **Local key** | Segredo por dispositivo vindo do wizard do tinytuya; nunca exibido | `tuya_devices.json` |
+| **Inventory** | O arquivo de lâmpadas do próprio app (0600): id, nome, chave, MAC, protocolo, último IP | `application/bulb_inventory.py` |
+| **DPS** | Data points da Tuya: 20 energia, 21 modo, 22 brilho do branco, 23 temperatura, 24 cor | `domain/bulb_color.py` |
+| **Remembered bulb** | Salva com `remembered: true`; aparece na sidebar e é lida na abertura | `state.json` `devices.bulbs` |
+| **Follow** | A lâmpada pega a cor de uma fonte: teclado, tela ou barra de LED | `ui/adapters/bulb_follow.py` |
+| **`BulbWorker`** | Filas seriais por lâmpada (threads `bulb-*`), um driver por lâmpada | `app/core/bulb_worker.py` |
+| **`ScreenFrameHub`** | A única captura de tela compartilhada (teclado + lâmpadas) | `app/core/screen_hub.py` |
+
 ## Ferramentas
 
 | Termo | Significado |

@@ -143,6 +143,24 @@ test -d /usr/lib/qt6/qml/org/kde/desktop  && echo OK || echo "Instale qqc2-breez
 
 **Teste rápido no Wayland:** `make sync-screen`, depois `avell-storm-rgb keyboard follow-screen --fullscreen`. Aceite o portal, escolha uma janela e veja as teclas acompanharem. Pare com `Ctrl+C`.
 
+## 🛠️ Lâmpadas inteligentes Tuya (opcional)
+
+Controle as lâmpadas Tuya da casa localmente (sem nuvem durante o uso), pela GUI ou pela CLI.
+
+```bash
+uv sync --extra gui --extra tuya
+uv run avell-storm-rgb bulb import ~/caminho/devices.json   # gerado uma vez por: python -m tinytuya wizard
+uv run avell-storm-rgb bulb status
+uv run avell-storm-rgb bulb off escritorio
+```
+
+Na GUI: **Devices → Smart bulbs → Connect** → a lâmpada ganha uma entrada na sidebar com interruptor e uma página
+(brilho, temperatura do branco, cor, **Follow** teclado/tela/barra de LED).
+
+> [!NOTE]
+> Abrir o app nunca altera uma lâmpada, e as chaves locais (`tuya_devices.json`, modo 0600) nunca aparecem.
+> Guia completo → [docs/BULBS](docs/BULBS.pt-BR.md).
+
 ## 🏗️ Arquitetura em 30 segundos
 
 | Caminho | Papel |

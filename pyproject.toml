@@ -33,17 +33,16 @@ screen = [
   "pipewire-capture>=0.2.9",
   "numpy>=1.24",
 ]
+tuya = [
+    "tinytuya>=1.20,<2",
+]
 
 [project.scripts]
 avell-storm-rgb = "avell_storm_rgb.adapters.cli.main:main"
 avell-storm-rgb-gui = "app.main:main"
 
-[tool.hatch.build]
-sources = ["src"]
-
-[tool.hatch.build.targets.wheel.force-include]
-"src/avell_storm_rgb/domain/keyboard_layouts/profiles" = "avell_storm_rgb/domain/keyboard_layouts/profiles"
-"src/avell_storm_rgb/domain/keyboard_layouts/usb_defaults.json" = "avell_storm_rgb/domain/keyboard_layouts/usb_defaults.json"
+[tool.hatch.build.targets.wheel]
+packages = ["src/avell_storm_rgb", "src/app"]
 
 [tool.hatch.build.targets.sdist]
 include = ["src/avell_storm_rgb", "src/app", "README.md", "LICENSE", "NOTICE", "docs", "assets"]

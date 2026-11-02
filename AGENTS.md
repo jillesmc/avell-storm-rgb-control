@@ -17,6 +17,8 @@ Source of truth for agents working in this repo. Folder-specific rules live in
 - **`src/avell_storm_rgb/`** — core + CLI (`avell-storm-rgb`), USB control of the ITE 8291 keyboard and ITE 8233 LED bar.
   Layers: `domain/` (pure), `ports/`, `application/`, `infrastructure/usb/` (wire protocol), `adapters/cli/`.
 - **`src/app/`** — PySide6 + QML (Kirigami) desktop GUI (`avell-storm-rgb-gui`). Depends on the core; the core never imports `app`.
+- **Tuya smart bulbs** (optional extra `tuya`): `domain/bulb_color.py`, `application/bulb_inventory.py`, `application/bulb_facade.py`,
+  `infrastructure/tuya/bulb.py`, `adapters/cli/bulb_cli.py`; GUI in `src/app/` (`BulbWorker`, `BulbsBackend`, `BulbFollower`). See [`docs/BULBS.md`](docs/BULBS.md).
 
 ## Tooling
 
@@ -34,6 +36,10 @@ Source of truth for agents working in this repo. Folder-specific rules live in
 - **GUI USB I/O** goes only through `UsbWorker.submit` (one background thread). Never call USB from QML or the GUI thread.
 - **Saved device state** (`state.json`, `avell_storm_rgb.application.device_state`) has **one writer**: `AppFacade`, on the GUI thread.
   The CLI and restore functions only read it. `device_state` must stay Qt-free.
+- **Bulbs:** only `infrastructure/tuya/bulb.py` imports `tinytuya`; everything else gates on `tuya_available()`.
+  Local keys live only in `tuya_devices.json` (0600) and never reach `state.json`, logs, GUI text, CLI output or errors.
+  `devices.bulbs` in `state.json` has the same single writer (`AppFacade`). Startup/refresh only **read** bulbs; nothing turns a light on unasked.
+  Tests and docs use only the fictional ids/keys/IPs from `tests/fixtures/tinytuya_devices.json`; never touch real bulbs from tests.
 - Tests must never touch the user's real config: `tests/conftest.py` points `XDG_CONFIG_HOME` at a temp dir; keep it.
 - **No new dependencies** without an explicit request. Add them with `uv add` (optional extras for GUI/screen).
 - Tasks about **CLI / USB / `avell_storm_rgb`**: don't import PySide6 there.

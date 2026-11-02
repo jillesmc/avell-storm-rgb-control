@@ -122,7 +122,7 @@ classDiagram
 - An exception inside a task → `opFailed(msg)` → `AppState.lastError` → shown in the UI and logged to stderr.
 
 > [!WARNING]
-> **One USB thread means long tasks block the queue.** While follow-screen or a looping animation runs, every other USB command waits behind it (brightness, effects, **even the LED bar**). They are stopped through a shared `threading.Event` (`_follow_stop`) set by **Stop**.
+> **One USB thread means long tasks block the queue.** While a looping animation runs, every other USB command waits behind it (brightness, effects, **even the LED bar**). It is stopped through a shared `threading.Event` (`_follow_stop`) set by **Stop**. Follow-screen no longer holds the thread: `ScreenFrameHub` captures on its own thread and each frame becomes one short USB task.
 
 The **CLI has no threads**: each command opens the device, runs, and exits. `Ctrl+C` ends loops.
 
@@ -141,6 +141,24 @@ The **CLI has no threads**: each command opens the device, runs, and exits. `Ctr
 
 > [!NOTE]
 > The devices are **barely readable**. Only the keyboard reports FW version, current effect bytes, brightness and on/off. Everything else the GUI shows comes from mirrors of what **this session** sent.
+
+## 🏗️ Tuya bulbs
+
+| Layer | Module | Role |
+|-------|--------|------|
+| domain | `domain/bulb_color.py` | RGB average, RGB ↔ Tuya HSV hex, % ↔ device range, "changed enough" (pure) |
+| application | `application/bulb_inventory.py` | `tuya_devices.json` (0600, atomic, `flock`), wizard import, target matching |
+| application | `application/bulb_facade.py` | `tuya_available()`, `open_bulb()` (IP: cache → ARP → last IP → discovery) |
+| infrastructure | `infrastructure/tuya/bulb.py` | `TuyaBulb` — the **only** module importing `tinytuya` |
+| adapters | `adapters/cli/bulb_cli.py` | `bulb …` verbs |
+| GUI | `app/core/bulb_worker.py`, `ui/adapters/bulbs_backend.py`, `bulb_model.py`, `bulb_follow.py` | `App.bulbs`, per-bulb queues, follow |
+| GUI | `app/core/screen_hub.py` | `ScreenFrameHub`: the one screen capture, shared by keyboard and bulbs |
+
+**Threads:** `BulbWorker` runs one single-thread executor **per bulb** (`bulb-*` threads): FIFO per bulb, parallel across bulbs,
+**never** the USB thread and **never** `AppState.busy`. Results reach the row cache only in `BulbsBackend._on_op_done` (GUI thread).
+Each bulb has at most **one** open driver; it stays open only while the bulb follows a source.
+
+**Writers:** `state.json` `devices.bulbs` → only `AppFacade`; `tuya_devices.json` → `BulbInventory` (CLI and GUI, under `flock`).
 
 ## 🏗️ Device protocol in one screen
 
@@ -171,7 +189,7 @@ These were found while mapping the code. **#4 and #7 were fixed** by the remembe
 | 3 | **`ports/protocols.py` barely used** — partly resolved: the `device_state` restore functions are typed against it; facades still return concrete classes | `application/device_facade.py:22` | Only restore depends on the port |
 | 4 | ✅ **Resolved** — `KEYBOARD_EFFECT_PARAMS` is derived from the builders; GUI and restore share `keyboard_effect_kwargs` | `ite8291_usb.py` | — |
 | 5 | **`_DEFAULT_PALETTE` duplicates** `restore_default_palette()` | `keyboard_backend.py:82` vs `ite8291_usb.py:290` | They can drift apart |
-| 6 | **Single USB thread** blocks during follow / looping animation. Keyboard actions now stop it first; **LED bar actions still wait** | `usb_worker.py:25` | A restored *forever* animation delays LED bar changes until Stop |
+| 6 | **Single USB thread** blocks during a looping animation. Follow-screen **no longer** blocks it: capture moved to `ScreenFrameHub`, each frame is one short USB task. **LED bar actions still wait behind an animation** | `usb_worker.py:25` | A restored *forever* animation delays LED bar changes until Stop |
 | 7 | ✅ **Resolved** — animations always run with `show_busy=False` | `keyboard_backend.py` | — |
 | 8 | **Follow-screen samples 16 × 6**, so only LED columns 0–15 of 21 are lit | `screen_follow_frame.py:13` | Right side of the keyboard stays dark |
 | 9 | **`KeyColorGrid.qml` is unused** (replaced by `KeyboardLayoutView`) | `src/app/ui/components/` | Dead code |

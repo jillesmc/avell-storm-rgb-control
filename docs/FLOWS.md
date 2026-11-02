@@ -184,3 +184,27 @@ flowchart LR
 - **Comments:** lines starting with `#`, and nested `/* … */` blocks.
 - **Loops:** CLI `--loop N` / `--forever`; GUI loops + "forever" checkbox. **Stop** sets the same `_follow_stop` event as follow-screen.
 - Coordinates are **device rows** (row 0 = bottom).
+
+## 🔁 9 · Tuya bulbs
+
+**Connect (GUI):** `connectBulb(id)` → `BulbWorker` (`bulb-*` thread) opens the driver, reads `status()`, closes →
+`opDone` (GUI thread) → row cache → `persistUpdate(id, {"remembered": True})` → `AppFacade` writes `state.json`.
+Unreachable → no memory, `opFailed` → inline error.
+
+**Startup:** `restoreRememberedDevices()` restores LED bar and keyboard, then `bulbs.refresh()` **reads** each remembered bulb.
+No command is sent. While the window is visible a 30 s timer repeats the reads.
+
+```mermaid
+flowchart LR
+    src[Keyboard tap / LED bar palette / ScreenFrameHub] --> fol[BulbFollower]
+    fol -->|250 ms tick, latest colour, Δ ≥ 8, light on| bw[BulbWorker queue]
+    bw --> drv[held TuyaBulb]
+    drv -->|push_colour: DPS 21+24, never 20| bulb[(Bulb)]
+```
+
+**Follow:** a source colour goes to the follower; each tick sends at most one colour, only if it changed enough and the
+last read says the bulb is on. A 5 s read while following notices a bulb switched off from the phone.
+
+> [!WARNING]
+> Remove on a following bulb stops the follower and closes the socket **before** the inventory write
+> (both are queued on that bulb's FIFO).

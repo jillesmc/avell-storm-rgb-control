@@ -13,6 +13,7 @@ import pytest
 from avell_storm_rgb.application import device_state as ds
 from avell_storm_rgb.application.device_state import (
     AnimationLook,
+    BulbState,
     DeviceState,
     DeviceStateStore,
     FirmwareEffectLook,
@@ -156,6 +157,63 @@ def test_default_path_follows_xdg(monkeypatch, tmp_path: Path) -> None:
     assert ds.default_state_path() == tmp_path / "avell-storm-rgb" / "state.json"
     monkeypatch.setenv("XDG_CONFIG_HOME", "relative/ignored")
     assert ds.default_state_path() == Path.home() / ".config" / "avell-storm-rgb" / "state.json"
+
+
+# --- bulbs (UT-034, UT-038, UT-039) ------------------------------------------
+
+BULB_ID = "eb1a2b3c4d5e6f70819202"
+
+
+def test_ut034_bulbs_round_trip(tmp_path: Path) -> None:
+    store = DeviceStateStore(tmp_path / "state.json")
+    state = DeviceState(bulbs=(BulbState(BULB_ID, True, "keyboard"),))
+    store.save(state)
+    assert store.load() == state
+    doc = json.loads((tmp_path / "state.json").read_text(encoding="utf-8"))
+    assert doc["devices"]["bulbs"] == {BULB_ID: {"remembered": True, "follow": "keyboard"}}
+
+
+def test_ut034_bulbs_are_sorted_by_id() -> None:
+    state = DeviceState(bulbs=(BulbState("b"), BulbState("a")))
+    assert [bulb.id for bulb in state.bulbs] == ["a", "b"]
+    assert list(ds.state_to_dict(state)["devices"]["bulbs"]) == ["a", "b"]
+
+
+def test_ut038_invalid_follow_raises_exact_value_error() -> None:
+    doc = {"version": 1, "devices": {"bulbs": {BULB_ID: {"remembered": True, "follow": "music"}}}}
+    with pytest.raises(ValueError) as e:
+        ds.state_from_dict(doc)
+    assert str(e.value) == (
+        f"bulbs.{BULB_ID}.follow must be one of none, keyboard, screen, led_bar, got 'music'"
+    )
+
+
+def test_ut038_store_reports_the_field_path(tmp_path: Path) -> None:
+    p = tmp_path / "state.json"
+    _write(p, {"version": 1, "devices": {"bulbs": {BULB_ID: {"remembered": True, "follow": "music"}}}})
+    with pytest.raises(StateFileError) as e:
+        DeviceStateStore(p).load()
+    assert e.value.reason == (
+        f"bulbs.{BULB_ID}.follow must be one of none, keyboard, screen, led_bar, got 'music'"
+    )
+
+
+def test_ut039_file_without_bulbs_loads_empty_and_rewrites_without_key(tmp_path: Path) -> None:
+    p = tmp_path / "state.json"
+    _write(p, {"version": 1, "devices": {}})
+    store = DeviceStateStore(p)
+    state = store.load()
+    assert state.bulbs == ()
+    store.save(state)
+    assert "bulbs" not in json.loads(p.read_text(encoding="utf-8"))["devices"]
+
+
+def test_ut039_current_release_file_keeps_no_bulbs_key(tmp_path: Path) -> None:
+    p = tmp_path / "state.json"
+    _write(p, _doc())
+    store = DeviceStateStore(p)
+    store.save(store.load())
+    assert "bulbs" not in json.loads(p.read_text(encoding="utf-8"))["devices"]
 
 
 # --- restore (UT-010–UT-017) ---------------------------------------------------

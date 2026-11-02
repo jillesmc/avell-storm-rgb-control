@@ -5,8 +5,14 @@ from __future__ import annotations
 import threading
 import time
 
-from avell_storm_rgb.application.screen_follow_frame import apply_pil_rgb_image_to_keyboard
+from collections.abc import Iterator
+from typing import TYPE_CHECKING
+
+from avell_storm_rgb.application.screen_follow import apply_frames_to_keyboard, pace
 from avell_storm_rgb.infrastructure.usb.ite8291_usb import Ite8291UsbDevice
+
+if TYPE_CHECKING:
+    from PIL.Image import Image
 
 
 def _numpy_bgra_to_pil_rgb(frame: object) -> object:
@@ -21,11 +27,15 @@ def _numpy_bgra_to_pil_rgb(frame: object) -> object:
     return Image.fromarray(rgb, mode="RGB")
 
 
-def run_screen_follow_wayland(
-    keyboard: Ite8291UsbDevice,
-    *,
-    stop_event: threading.Event | None = None,
-) -> None:
+class ScreenCaptureCancelled(Exception):
+    """The user closed the portal picker without choosing a window."""
+
+
+def iter_wayland_frames(stop_event: threading.Event | None = None) -> Iterator["Image"]:
+    """Yield RGB frames of the window picked in the portal until stopped or the window closes.
+
+    Raises :class:`ScreenCaptureCancelled` when the picker is cancelled.
+    """
     try:
         from pipewire_capture import CaptureStream, PortalCapture, is_available
     except ImportError as e:
@@ -44,7 +54,7 @@ def run_screen_follow_wayland(
     portal = PortalCapture()
     session = portal.select_window()
     if session is None:
-        return
+        raise ScreenCaptureCancelled()
 
     stream = None
     try:
@@ -64,7 +74,6 @@ def run_screen_follow_wayland(
 
     assert stream is not None
 
-    keyboard.enable_user_mode()
     last_draw = 0.0
     try:
         while stop_event is None or not stop_event.is_set():
@@ -72,19 +81,22 @@ def run_screen_follow_wayland(
                 break
             frame = stream.get_frame()
             if frame is not None:
-                im = _numpy_bgra_to_pil_rgb(frame)
-                apply_pil_rgb_image_to_keyboard(keyboard, im, enable_user_mode_flag=False)
-                now = time.monotonic()
-                if now - last_draw <= 0.1:
-                    wait = 0.1 - (now - last_draw)
-                    step = 0.05
-                    while wait > 0 and (stop_event is None or not stop_event.is_set()):
-                        time.sleep(min(step, wait))
-                        wait -= step
-                last_draw = time.monotonic()
+                yield _numpy_bgra_to_pil_rgb(frame)
+                last_draw = pace(last_draw, stop_event)
             else:
                 time.sleep(0.01)
     finally:
         if stream is not None:
             stream.stop()
         session.close()
+
+
+def run_screen_follow_wayland(
+    keyboard: Ite8291UsbDevice,
+    *,
+    stop_event: threading.Event | None = None,
+) -> None:
+    try:
+        apply_frames_to_keyboard(keyboard, iter_wayland_frames(stop_event))
+    except ScreenCaptureCancelled:
+        return

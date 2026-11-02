@@ -122,7 +122,7 @@ classDiagram
 - Uma exceção dentro de uma task → `opFailed(msg)` → `AppState.lastError` → mostrado na UI e logado no stderr.
 
 > [!WARNING]
-> **Uma thread USB só significa que tarefas longas travam a fila.** Enquanto follow-screen ou uma animação em loop roda, todo outro comando USB espera atrás dela (brilho, efeitos, **até a barra de LED**). Elas param por um `threading.Event` compartilhado (`_follow_stop`), acionado pelo **Stop**.
+> **Uma thread USB só significa que tarefas longas travam a fila.** Enquanto uma animação em loop roda, todo outro comando USB espera atrás dela (brilho, efeitos, **até a barra de LED**). Ela para por um `threading.Event` compartilhado (`_follow_stop`), acionado pelo **Stop**. O follow-screen não segura mais a thread: o `ScreenFrameHub` captura na própria thread e cada frame vira uma task USB curta.
 
 A **CLI não tem threads**: cada comando abre o dispositivo, executa e sai. `Ctrl+C` encerra os loops.
 
@@ -141,6 +141,24 @@ A **CLI não tem threads**: cada comando abre o dispositivo, executa e sai. `Ctr
 
 > [!NOTE]
 > Os dispositivos **quase não podem ser lidos**. Só o teclado informa versão de FW, bytes do efeito atual, brilho e ligado/desligado. O resto que a GUI mostra vem de espelhos do que **esta sessão** enviou.
+
+## 🏗️ Lâmpadas Tuya
+
+| Camada | Módulo | Papel |
+|--------|--------|-------|
+| domain | `domain/bulb_color.py` | Média RGB, RGB ↔ HSV hex da Tuya, % ↔ faixa do dispositivo, "mudou o bastante" (puro) |
+| application | `application/bulb_inventory.py` | `tuya_devices.json` (0600, atômico, `flock`), import do wizard, busca por alvo |
+| application | `application/bulb_facade.py` | `tuya_available()`, `open_bulb()` (IP: cache → ARP → último IP → descoberta) |
+| infrastructure | `infrastructure/tuya/bulb.py` | `TuyaBulb` — o **único** módulo que importa `tinytuya` |
+| adapters | `adapters/cli/bulb_cli.py` | Verbos `bulb …` |
+| GUI | `app/core/bulb_worker.py`, `ui/adapters/bulbs_backend.py`, `bulb_model.py`, `bulb_follow.py` | `App.bulbs`, filas por lâmpada, follow |
+| GUI | `app/core/screen_hub.py` | `ScreenFrameHub`: a única captura de tela, compartilhada por teclado e lâmpadas |
+
+**Threads:** o `BulbWorker` tem um executor de uma thread **por lâmpada** (threads `bulb-*`): FIFO por lâmpada, em paralelo entre lâmpadas,
+**nunca** a thread de USB e **nunca** `AppState.busy`. Resultados chegam ao cache das linhas só em `BulbsBackend._on_op_done` (thread da GUI).
+Cada lâmpada tem no máximo **um** driver aberto; ele só fica aberto enquanto a lâmpada segue uma fonte.
+
+**Quem grava:** `state.json` `devices.bulbs` → só o `AppFacade`; `tuya_devices.json` → `BulbInventory` (CLI e GUI, sob `flock`).
 
 ## 🏗️ Protocolo dos dispositivos numa tela
 
@@ -171,7 +189,7 @@ Encontradas durante o mapeamento do código. **A #4 e a #7 foram corrigidas** no
 | 3 | **`ports/protocols.py` quase não é usado** — resolvido em parte: as funções de restore do `device_state` são tipadas por ele; as fachadas ainda retornam classes concretas | `application/device_facade.py:22` | Só o restore depende do port |
 | 4 | ✅ **Resolvida** — `KEYBOARD_EFFECT_PARAMS` é derivado dos builders; GUI e restore usam o mesmo `keyboard_effect_kwargs` | `ite8291_usb.py` | — |
 | 5 | **`_DEFAULT_PALETTE` duplica** `restore_default_palette()` | `keyboard_backend.py:82` vs `ite8291_usb.py:290` | Podem divergir |
-| 6 | **Thread USB única** trava durante follow / animação em loop. Ações do teclado agora param a animação antes; **ações da barra de LED ainda esperam** | `usb_worker.py:25` | Uma animação *forever* restaurada atrasa mudanças na barra até o Stop |
+| 6 | **Thread USB única** trava durante uma animação em loop. O follow-screen **não trava mais**: a captura foi para o `ScreenFrameHub` e cada frame vira uma task USB curta. **Ações da barra de LED ainda esperam atrás de uma animação** | `usb_worker.py:25` | Uma animação *forever* restaurada atrasa mudanças na barra até o Stop |
 | 7 | ✅ **Resolvida** — animações sempre rodam com `show_busy=False` | `keyboard_backend.py` | — |
 | 8 | **Follow-screen amostra 16 × 6**, então só as colunas de LED 0–15 de 21 acendem | `screen_follow_frame.py:13` | O lado direito do teclado fica apagado |
 | 9 | **`KeyColorGrid.qml` não é usado** (substituído por `KeyboardLayoutView`) | `src/app/ui/components/` | Código morto |

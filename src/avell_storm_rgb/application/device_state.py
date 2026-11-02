@@ -33,6 +33,10 @@ if TYPE_CHECKING:
 DeviceKind = Literal["keyboard", "led_bar"]
 Power = Literal["on", "off"]
 RGB = tuple[int, int, int]
+Follow = Literal["none", "keyboard", "screen", "led_bar"]
+
+#: Order is part of the public validation message (``_dx.md``), so it is not sorted.
+FOLLOW_VALUES: tuple[Follow, ...] = ("none", "keyboard", "screen", "led_bar")
 
 STATE_VERSION = 1
 STATE_FILENAME = "state.json"
@@ -96,9 +100,22 @@ class LedBarState:
 
 
 @dataclass(frozen=True)
+class BulbState:
+    """One saved bulb: remembered in the sidebar and the follow source (BR-15)."""
+
+    id: str
+    remembered: bool = True
+    follow: Follow = "none"
+
+
+@dataclass(frozen=True)
 class DeviceState:
     keyboard: KeyboardState | None = None
     led_bar: LedBarState | None = None
+    bulbs: tuple[BulbState, ...] = ()  # sorted by id
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "bulbs", tuple(sorted(self.bulbs, key=lambda b: b.id)))
 
 
 class StateFileError(Exception):
@@ -232,6 +249,12 @@ def _common(d: dict, where: str) -> tuple[str, bool, Power]:
     )
 
 
+def _follow(v: Any, where: str) -> Follow:
+    if v not in FOLLOW_VALUES:
+        raise ValueError(f"{where} must be one of {', '.join(FOLLOW_VALUES)}, got {v!r}")
+    return v  # type: ignore[return-value]
+
+
 def state_from_dict(doc: Any) -> DeviceState:
     """Validate a decoded ``state.json`` document. Raises ``ValueError`` with a field path."""
     doc = _obj(doc, "state")
@@ -267,7 +290,20 @@ def state_from_dict(doc: Any) -> DeviceState:
             power=power,
             look=_led_look_from(d.get("look"), "led_bar.look"),
         )
-    return DeviceState(keyboard=kb, led_bar=led)
+    bulbs: list[BulbState] = []
+    raw_bulbs = devices.get("bulbs")
+    if raw_bulbs is not None:
+        for bulb_id, entry in _obj(raw_bulbs, "bulbs").items():
+            where = f"bulbs.{bulb_id}"
+            entry = _obj(entry, where)
+            bulbs.append(
+                BulbState(
+                    id=bulb_id,
+                    remembered=_bool(entry.get("remembered"), f"{where}.remembered"),
+                    follow=_follow(entry.get("follow"), f"{where}.follow"),
+                )
+            )
+    return DeviceState(keyboard=kb, led_bar=led, bulbs=tuple(bulbs))
 
 
 def state_to_dict(state: DeviceState) -> dict:
@@ -296,6 +332,10 @@ def state_to_dict(state: DeviceState) -> dict:
                 "brightness": b.look.brightness,
                 "speed": b.look.speed,
             },
+        }
+    if state.bulbs:
+        devices["bulbs"] = {
+            bulb.id: {"remembered": bulb.remembered, "follow": bulb.follow} for bulb in state.bulbs
         }
     return {"version": STATE_VERSION, "devices": devices}
 

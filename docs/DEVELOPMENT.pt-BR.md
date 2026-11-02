@@ -70,7 +70,22 @@ SUBSYSTEM=="usb", ATTR{idVendor}=="048d", ATTR{idProduct}=="7001", MODE="0666"
 - A maioria **pula** quando falta PySide6 ou Kirigami. Pular não é regressão.
 
 > [!WARNING]
-> `tests/test_gui_pages.py` importa PySide6 **antes** do `importorskip`. Sem o extra `gui`, a coleta **dá erro** em vez de pular. Rode `make sync-gui` (ou `sync-all`) antes do `make test`.
+> Vários módulos de teste de GUI (ex.: `tests/test_gui_pages.py`) importam PySide6 no topo. Sem o extra `gui`, a coleta **dá erro** em vez de pular. Rode `make sync-gui` (ou `sync-all`) antes do `make test`.
+
+**CI:** `.github/workflows/tests.yml` roda `uv sync --locked --group dev --extra gui --extra tuya` + `pytest -m "not hardware"` no Python 3.10 e 3.12 (Ubuntu, offscreen, sem Kirigami → os testes de QML pulam).
+
+**Releases:** o [release-please](https://github.com/googleapis/release-please) (`.github/workflows/release.yml`) lê os [Conventional Commits](https://www.conventionalcommits.org/) do `master` (`feat:` → minor, `fix:` → patch, `feat!:` → major) e mantém aberto um PR de release que sobe a versão em `pyproject.toml`, `__version__`, `uv.lock` e `CHANGELOG.md`. Ao fazer merge dele, sai a tag `vX.Y.Z`, o release no GitHub e o wheel + sdist do `uv build` anexados. Faça squash-merge dos PRs com título convencional.
+
+### Testes das lâmpadas (sem hardware, sem rede)
+
+- `uv sync --extra gui --extra screen --extra tuya`, depois `make test`.
+- `FakeBulb` e `drain_bulbs` ficam em `tests/backend_fakes.py`; a fixture do wizard é `tests/fixtures/tinytuya_devices.json` (chaves fictícias).
+- O `tests/conftest.py` aponta `XDG_CONFIG_HOME` para uma pasta temporária e troca a captura de tela por um fake parado: **nenhum teste abre captura real, seletor do portal, lâmpada ou dispositivo USB**.
+- Nunca coloque uma chave local real ou IP de casa em teste ou doc.
+
+> [!TIP]
+> Se todo teste do `main.qml` for pulado, ou o `test_gui_pages.py` falhar com "incompatible Qt library", o Kirigami da distro é mais novo
+> que o PySide6 do venv. Rode com um PySide6 compatível: `uv run --with "PySide6==<versão do Qt da distro>" pytest -m "not hardware"`.
 
 ## 🛠️ Variáveis de ambiente e flags
 

@@ -134,3 +134,89 @@ class FakeLedBar:
 
     def names(self) -> list[str]:
         return [c[0] for c in self.calls]
+
+
+class FakeBulb:
+    """Implements ``ports.protocols.BulbDriver``; records every call, never touches the network."""
+
+    opened = 0  # class-wide open count (one per instance)
+    live_connections = 0
+
+    def __init__(
+        self,
+        *,
+        status=None,
+        fail_on: frozenset[str] = frozenset(),
+        unreachable: bool = False,
+        key: str = "",
+        journal: list | None = None,
+        reject_second_connection: bool = False,
+    ) -> None:
+        from avell_storm_rgb.domain.bulb_color import BulbStatus
+
+        self.calls: list[tuple] = []
+        self.journal = journal
+        self.state = status or BulbStatus(True, "white", 50, 30, None)
+        self.fail_on = fail_on
+        self.unreachable = unreachable
+        self.key = key
+        self.closed = False
+        self.held = False
+        self.reject_second_connection = reject_second_connection
+        if reject_second_connection and FakeBulb.live_connections > 0:
+            raise AssertionError("second concurrent connection")
+        FakeBulb.opened += 1
+        FakeBulb.live_connections += 1
+
+    def _rec(self, name: str, *args) -> None:
+        from avell_storm_rgb.application.bulb_facade import BulbError, BulbUnreachable
+
+        if self.unreachable:
+            raise BulbUnreachable("fake")
+        if name in self.fail_on:
+            raise BulbError(f"{name} failed")
+        self.calls.append((name, *args))
+        if self.journal is not None:
+            self.journal.append(name)
+
+    def status(self):
+        self._rec("status")
+        return self.state
+
+    def set_power(self, on: bool) -> None:
+        self._rec("set_power", on)
+
+    def set_brightness(self, percent: int, status=None) -> None:
+        self._rec("set_brightness", percent)
+
+    def set_white(self, temperature_percent, status=None) -> None:
+        self._rec("set_white", temperature_percent)
+
+    def set_colour(self, rgb) -> None:
+        self._rec("set_colour", tuple(rgb))
+
+    def push_colour(self, rgb) -> None:
+        self._rec("push_colour", tuple(rgb))
+
+    def hold_open(self, persistent: bool) -> None:
+        self.held = persistent
+        self.calls.append(("hold_open", persistent))
+
+    def close(self) -> None:
+        if not self.closed:
+            self.closed = True
+            FakeBulb.live_connections -= 1
+        self.calls.append(("close",))
+
+    def names(self) -> list[str]:
+        return [c[0] for c in self.calls]
+
+
+def drain_bulbs(worker, rounds: int = 4) -> None:
+    """Wait for every queued bulb task, then deliver queued signals; repeat for follow-ups."""
+    from PySide6.QtCore import QCoreApplication
+
+    for _ in range(rounds):
+        for pool in list(worker._pools.values()):
+            pool.submit(lambda: None).result(timeout=5)
+        QCoreApplication.processEvents()

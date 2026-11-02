@@ -37,8 +37,9 @@ Kirigami.ApplicationWindow {
         0.22
     )
 
-    /** 0 Devices, 1 Keyboard, 2 LED bar, 3 Settings, 4 About */
+    /** 0 Devices, 1 Keyboard, 2 LED bar, 3 Settings, 4 About, 5 Bulb (selectedBulbId) */
     property int primarySection: 0
+    property string selectedBulbId: ""
     property int keyboardSubNavIndex: 0
     property int ledSubNavIndex: 0
 
@@ -49,6 +50,9 @@ Kirigami.ApplicationWindow {
     property string ledSelectedPalette: ""
     property string ledSelectedEffect: ""
 
+    /* Drives the bulb refresh cadence (BR-8), including hides through closeToTray. */
+    onVisibleChanged: App.setWindowVisible(visible)
+
     onClosing: function (close) {
         if (App.closeToTray) {
             close.accepted = false
@@ -57,9 +61,11 @@ Kirigami.ApplicationWindow {
     }
 
     function syncPrimarySidebarListIndex() {
-        if (appRoot.primarySection <= 2) {
+        if (appRoot.primarySection <= 2 || appRoot.primarySection === 5) {
             for (var i = 0; i < primaryNavModel.count; i++) {
-                if (primaryNavModel.get(i).page === appRoot.primarySection) {
+                var entry = primaryNavModel.get(i)
+                if (entry.page === appRoot.primarySection
+                        && (entry.page !== 5 || entry.bulbId === appRoot.selectedBulbId)) {
                     primarySidebarList.currentIndex = i
                     return
                 }
@@ -78,6 +84,11 @@ Kirigami.ApplicationWindow {
             title: qsTr("Devices"),
             iconName: "computer-laptop-symbolic",
             page: 0,
+            bulbId: "",
+            lightOn: false,
+            available: true,
+            stateKnown: false,
+            unavailableReason: "",
             showChevron: false,
             showSwitch: false
         })
@@ -88,6 +99,11 @@ Kirigami.ApplicationWindow {
                 title: qsTr("Keyboard"),
                 iconName: "input-keyboard-symbolic",
                 page: 1,
+                bulbId: "",
+                lightOn: false,
+                available: true,
+                stateKnown: false,
+                unavailableReason: "",
                 showChevron: true,
                 showSwitch: true
             })
@@ -99,20 +115,49 @@ Kirigami.ApplicationWindow {
                 title: qsTr("LED bar"),
                 iconName: "keyboard-spacebar",
                 page: 2,
+                bulbId: "",
+                lightOn: false,
+                available: true,
+                stateKnown: false,
+                unavailableReason: "",
                 showChevron: true,
+                showSwitch: true
+            })
+        }
+        var bulbs = App.bulbs.rememberedBulbs()
+        var selectedBulbPresent = false
+        for (var b = 0; b < bulbs.length; b++) {
+            var bulb = bulbs[b]
+            if (bulb.bulbId === appRoot.selectedBulbId)
+                selectedBulbPresent = true
+            primaryNavModel.append({
+                sectionName: "enabled",
+                entryName: "sidebarBulbEntry",
+                title: bulb.title,
+                iconName: "lightbulb",
+                page: 5,
+                bulbId: bulb.bulbId,
+                lightOn: bulb.lightOn,
+                available: bulb.available,
+                stateKnown: bulb.stateKnown,
+                unavailableReason: bulb.unavailableReason,
+                showChevron: false,
                 showSwitch: true
             })
         }
         /* The page of a device that was just forgotten has no entry any more: back to Devices. */
         if ((appRoot.primarySection === 1 && !App.keyboardRemembered)
-                || (appRoot.primarySection === 2 && !App.ledBarRemembered)) {
+                || (appRoot.primarySection === 2 && !App.ledBarRemembered)
+                || (appRoot.primarySection === 5 && !selectedBulbPresent)) {
             appRoot.primarySection = 0
             deviceContentStack.currentIndex = 0
         }
         appRoot.syncPrimarySidebarListIndex()
     }
 
-    function unavailableReasonForPage(page) {
+    function unavailableReasonForPage(page, entry) {
+        if (page === 5)
+            return entry.available ? "" : entry.unavailableReason
         if (page === 1)
             return App.keyboardUnavailableReason
         if (page === 2)
@@ -178,6 +223,13 @@ Kirigami.ApplicationWindow {
     Connections {
         target: App
         function onDeviceMemoryChanged() {
+            appRoot.rebuildPrimaryNav()
+        }
+    }
+
+    Connections {
+        target: App.bulbs
+        function onModelChanged() {
             appRoot.rebuildPrimaryNav()
         }
     }
@@ -279,7 +331,7 @@ Kirigami.ApplicationWindow {
                         id: navEntry
                         objectName: model.entryName
                         width: ListView.view.width
-                        readonly property string unavailableReason: appRoot.unavailableReasonForPage(model.page)
+                        readonly property string unavailableReason: appRoot.unavailableReasonForPage(model.page, model)
                         text: ""
                         icon.name: ""
                         topPadding: Kirigami.Units.mediumSpacing
@@ -295,7 +347,7 @@ Kirigami.ApplicationWindow {
                                 implicitHeight: Kirigami.Units.iconSizes.small
                                 isMask: true
                                 color: Kirigami.Theme.textColor
-                                fallback: "applications-other"
+                                fallback: model.page === 5 ? "preferences-desktop-color" : "applications-other"
                             }
                             ColumnLayout {
                                 Layout.fillWidth: true
@@ -325,33 +377,43 @@ Kirigami.ApplicationWindow {
                                 Layout.alignment: Qt.AlignVCenter
                             }
                             Switch {
-                                objectName: model.page === 1 ? "keyboardLightSwitch" : "ledBarLightSwitch"
+                                objectName: model.page === 5 ? "bulbLightSwitch"
+                                            : (model.page === 1 ? "keyboardLightSwitch" : "ledBarLightSwitch")
                                 visible: model.showSwitch
                                 /** Light on/off; connecting and forgetting live on the Devices page. */
                                 /** While unavailable (disabled), show the saved light state. */
-                                checked: model.page === 1
-                                         ? (App.keyboard.connected ? App.keyboard.lightOn : App.keyboardSavedLightOn)
-                                         : (App.ledBar.connected ? App.ledBar.lightOn : App.ledBarSavedLightOn)
-                                enabled: model.page === 1 ? App.keyboard.connected : App.ledBar.connected
+                                /** Bulbs: model-driven; unknown renders disabled + unchecked, never "off". */
+                                checked: model.page === 5 ? model.lightOn
+                                         : (model.page === 1
+                                            ? (App.keyboard.connected ? App.keyboard.lightOn : App.keyboardSavedLightOn)
+                                            : (App.ledBar.connected ? App.ledBar.lightOn : App.ledBarSavedLightOn))
+                                enabled: model.page === 5 ? (model.available && model.stateKnown)
+                                         : (model.page === 1 ? App.keyboard.connected : App.ledBar.connected)
                                 scale: 0.9
                                 transformOrigin: Item.Center
                                 Layout.alignment: Qt.AlignVCenter
-                                Accessible.name: model.page === 1 ? qsTr("Keyboard light") : qsTr("LED bar light")
+                                Accessible.name: model.page === 5 ? qsTr("%1 light").arg(model.title)
+                                                 : (model.page === 1 ? qsTr("Keyboard light") : qsTr("LED bar light"))
                                 ToolTip.visible: hovered
-                                ToolTip.text: model.page === 1
-                                              ? qsTr("Turn the keyboard light on/off")
-                                              : qsTr("Turn the LED bar light on/off")
+                                ToolTip.text: model.page === 5 ? qsTr("Turn this bulb on/off")
+                                              : (model.page === 1
+                                                 ? qsTr("Turn the keyboard light on/off")
+                                                 : qsTr("Turn the LED bar light on/off"))
                                 onToggled: {
                                     if (model.page === 1)
                                         App.keyboard.setLightOn(checked)
                                     else if (model.page === 2)
                                         App.ledBar.setLightOn(checked)
+                                    else if (model.page === 5)
+                                        App.bulbs.setLightOn(model.bulbId, checked)
                                 }
                             }
                         }
 
                         onClicked: {
                             ListView.view.currentIndex = index
+                            if (model.page === 5)
+                                appRoot.selectedBulbId = model.bulbId
                             appRoot.primarySection = model.page
                             deviceContentStack.currentIndex = model.page
                         }
@@ -600,6 +662,10 @@ Kirigami.ApplicationWindow {
                 SettingsPage {}
 
                 AppAboutPage {}
+
+                BulbPage {
+                    bulbId: appRoot.selectedBulbId
+                }
             }
         }
     }

@@ -25,6 +25,7 @@
 | Check which feature is supported where | [FEATURE_MATRIX](FEATURE_MATRIX.md) | ~2 min |
 | Understand effects, parameters and exclusions per device | [DEVICE_FEATURES_DEEP_DIVE](DEVICE_FEATURES_DEEP_DIVE.md) | ~10 min |
 | Write a per-key animation script | [assets/animations/README](../assets/animations/README.md) | ~3 min |
+| Control Tuya smart bulbs (optional) | [BULBS](BULBS.md) | ~6 min |
 | Decode a term | [GLOSSARY](GLOSSARY.md) | lookup |
 
 > [!TIP]
@@ -43,6 +44,7 @@ flowchart LR
     idx --> dev[DEVELOPMENT]
     dev --> arch
     idx --> glo[GLOSSARY]
+    ov --> bulbs[BULBS]
 ```
 
 ---
@@ -86,3 +88,4 @@ These rules apply to every Markdown doc in the repo.
 | A GUI page or tab | OVERVIEW GUI tour, DEVICE_FEATURES_DEEP_DIVE "UI ↔ backend" |
 | Env vars, extras, setup | DEVELOPMENT, root README |
 | A new concept or name | GLOSSARY |
+| Bulb behaviour, `bulb` CLI, `tuya_devices.json` or `devices.bulbs` in `state.json` | BULBS, root README, FEATURE_MATRIX, ARCHITECTURE (writers), FLOWS §9 |

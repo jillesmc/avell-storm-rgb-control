@@ -12,6 +12,7 @@ Item {
 
     property string deviceTitle: ""
     property string reason: ""
+    property string forgetHint: qsTr("Stop reconnecting this device. Its saved look is kept.")
 
     signal retryRequested()
     signal forgetRequested()
@@ -39,7 +40,7 @@ Item {
             text: qsTr("Forget")
             icon.name: "edit-delete-remove-symbolic"
             ToolTip.visible: hovered
-            ToolTip.text: qsTr("Stop reconnecting this device. Its saved look is kept.")
+            ToolTip.text: root.forgetHint
             onClicked: root.forgetRequested()
         }
     }

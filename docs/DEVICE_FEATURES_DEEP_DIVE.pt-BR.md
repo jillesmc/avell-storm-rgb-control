@@ -206,6 +206,20 @@ uv run avell-storm-rgb led-bar brightness 80 --with-effect breathing
 5. **Barra `static`:** mude só a velocidade com brilho fixo. A animação estática muda?
 6. **Ordem na barra:** aqui `led-bar brightness` **sempre** reaplica `--with-effect` (scripts antigos não enviavam o brilho sozinho).
 
+## 🏗️ Lâmpada Tuya — modelo mental
+
+| DPS | Significado | Valores |
+|-----|-------------|---------|
+| 20 | Energia | `true` / `false` |
+| 21 | Modo | `white`, `colour` (`scene`, `music` só pelo celular) |
+| 22 | Brilho do branco | dispositivo 10–1000 ↔ 1–100 % |
+| 23 | Temperatura do branco | 0–1000 ↔ 0 quente … 100 frio |
+| 24 | Cor | HSV hex `HHHHSSSSVVVV`; V é o brilho da cor (≥ 1 %) |
+
+- O brilho segue o modo: branco → DPS 22, cor → V do DPS 24.
+- Comandos explícitos mandam o DPS 20 (ligam). O **Follow** manda só 21 + 24 (`push_colour`), nunca o 20.
+- Mais → [BULBS](BULBS.pt-BR.md).
+
 ## 🧭 Arquivos principais
 
 | Tema | Caminho |

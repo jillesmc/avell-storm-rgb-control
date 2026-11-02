@@ -4,3 +4,4 @@ KeyboardPage 1.0 KeyboardPage.qml
 LedBarPage 1.0 LedBarPage.qml
 AppAboutPage 1.0 AppAboutPage.qml
 SettingsPage 1.0 SettingsPage.qml
+BulbPage 1.0 BulbPage.qml

@@ -143,6 +143,24 @@ test -d /usr/lib/qt6/qml/org/kde/desktop  && echo OK || echo "Install qqc2-breez
 
 **Wayland smoke test:** `make sync-screen`, then `avell-storm-rgb keyboard follow-screen --fullscreen`. Accept the portal, pick a window and watch the keys follow it. Stop with `Ctrl+C`.
 
+## 🛠️ Tuya smart bulbs (optional)
+
+Control the house's Tuya bulbs locally (no cloud at run time), from the GUI or the CLI.
+
+```bash
+uv sync --extra gui --extra tuya
+uv run avell-storm-rgb bulb import ~/path/devices.json   # written once by: python -m tinytuya wizard
+uv run avell-storm-rgb bulb status
+uv run avell-storm-rgb bulb off escritorio
+```
+
+In the GUI: **Devices → Smart bulbs → Connect** → the bulb gets a sidebar entry with a light switch and a page
+(brightness, white temperature, colour, **Follow** keyboard/screen/LED bar).
+
+> [!NOTE]
+> Opening the app never changes a bulb, and local keys (`tuya_devices.json`, mode 0600) are never shown.
+> Full guide → [docs/BULBS](docs/BULBS.md).
+
 ## 🏗️ Architecture in 30 seconds
 
 | Path | Role |

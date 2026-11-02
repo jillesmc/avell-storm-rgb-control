@@ -7,9 +7,16 @@ from pathlib import Path
 
 import pytest
 
+from avell_storm_rgb.adapters.cli import bulb_cli
 from avell_storm_rgb.adapters.cli import main as cli
+from avell_storm_rgb.application.bulb_inventory import (
+    BulbInventory,
+    BulbRecord,
+    default_inventory_path,
+)
 from avell_storm_rgb.application.device_state import (
     AnimationLook,
+    BulbState,
     DeviceState,
     DeviceStateStore,
     KeyboardState,
@@ -139,6 +146,93 @@ def test_ut072_show_invalid_file(capsys) -> None:
     assert path.read_text() == "{"
 
 
+# --- show: bulbs (E2E-013, E2E-016) ------------------------------------------------
+
+BULB_ESC = "eb1a2b3c4d5e6f70819202"
+BULB_SALA = "eb1a2b3c4d5e6f70819203"
+
+
+def _save_bulb_state() -> Path:
+    return _save(
+        DeviceState(
+            keyboard=KeyboardState("048d:ce00", look=SolidLook((0, 120, 255))),
+            led_bar=LedBarState(
+                "048d:7001", look=LedBarLook(((255, 0, 0), (0, 0, 255)), "wave", 100, 3)
+            ),
+            bulbs=(BulbState(BULB_ESC, True, "keyboard"), BulbState(BULB_SALA, False, "none")),
+        )
+    )
+
+
+def _save_inventory() -> None:
+    BulbInventory().save(
+        [
+            BulbRecord(BULB_ESC, "Escritório", "test-key-esc", "10:d5:61:00:00:02"),
+            BulbRecord(BULB_SALA, "Sala", "test-key-sala", "10:d5:61:00:00:03"),
+        ]
+    )
+
+
+def test_e2e013_show_bulb_lines_and_json(capsys) -> None:
+    path = _save_bulb_state()
+    _save_inventory()
+    code, out, _ = _run(capsys, "state", "show")
+    assert code == 0
+    assert out.splitlines() == [
+        f"State file: {path}",
+        "keyboard  048d:ce00  remembered  light on   solid #0078ff",
+        "led-bar   048d:7001  remembered  light on   wave · 2 colours · brightness 100 · speed 3",
+        f"bulb      Escritório  {BULB_ESC}  remembered  follow keyboard",
+        f"bulb      Sala        {BULB_SALA}  forgotten   follow none",
+    ]
+    code, out, _ = _run(capsys, "state", "show", "--json")
+    assert code == 0
+    assert json.loads(out)["devices"]["bulbs"] == {
+        BULB_ESC: {"remembered": True, "follow": "keyboard"},
+        BULB_SALA: {"remembered": False, "follow": "none"},
+    }
+
+
+def test_show_json_omits_bulbs_when_empty(capsys) -> None:
+    _save(DeviceState(keyboard=KeyboardState("048d:ce00")))
+    code, out, _ = _run(capsys, "state", "show", "--json")
+    assert code == 0
+    assert "bulbs" not in json.loads(out)["devices"]
+
+
+def test_e2e016_missing_inventory_shows_not_imported(capsys) -> None:
+    path = _save_bulb_state()
+    code, out, err = _run(capsys, "state", "show")
+    assert code == 0
+    assert err == ""
+    assert out.splitlines() == [
+        f"State file: {path}",
+        "keyboard  048d:ce00  remembered  light on   solid #0078ff",
+        "led-bar   048d:7001  remembered  light on   wave · 2 colours · brightness 100 · speed 3",
+        f"bulb      {BULB_ESC}  (not imported)",
+        f"bulb      {BULB_SALA}  (not imported)",
+    ]
+
+
+def test_e2e016_corrupt_inventory_keeps_device_lines_and_exits_3(capsys) -> None:
+    _save_bulb_state()
+    inventory = default_inventory_path()
+    inventory.parent.mkdir(parents=True, exist_ok=True)
+    inventory.write_text("{", encoding="utf-8")
+    code, out, err = _run(capsys, "state", "show")
+    assert code == 3
+    lines = out.splitlines()
+    assert lines[1].startswith("keyboard  048d:ce00")
+    assert lines[2].startswith("led-bar   048d:7001")
+    assert lines[3:] == [
+        f"bulb      {BULB_ESC}  (inventory unreadable)",
+        f"bulb      {BULB_SALA}  (inventory unreadable)",
+    ]
+    assert err.strip() == (
+        f"error: bulb inventory is unreadable (invalid JSON at line 1 column 2): {inventory}"
+    )
+
+
 # --- restore (UT-073–UT-080) ---------------------------------------------------------
 
 
@@ -235,6 +329,16 @@ def test_restore_json(capsys, fakes) -> None:
         "applied": ["palette 1,3", "brightness 40", "firmware effect wave"], "warnings": [],
     }
     assert code == 1
+
+
+def test_ut036_restore_ignores_bulbs(capsys, fakes, monkeypatch) -> None:
+    _save_bulb_state()
+    calls: list = []
+    monkeypatch.setattr(bulb_cli, "open_bulb", lambda *a, **k: calls.append((a, k)))
+    code, out, _ = _run(capsys, "state", "restore")
+    assert calls == []
+    assert "bulb" not in out
+    assert code == 0
 
 
 # --- E2E (E2E-001–E2E-003) -----------------------------------------------------------

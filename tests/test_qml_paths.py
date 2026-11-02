@@ -7,11 +7,19 @@ from pathlib import Path
 
 import pytest
 
+import app.qml_paths
 from app.qml_paths import (
     _is_unsafe_qt_plugin_path,
     ensure_qt_plugin_path_for_process,
     merge_qt_plugin_path,
 )
+
+
+@pytest.fixture(autouse=True)
+def _arch_distro_layout(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Pin the distro Qt roots so the filtering is tested on any host (Debian CI has none)."""
+    roots = [Path("/usr/lib/qt6/plugins").resolve(), Path("/usr/lib64/qt6/plugins").resolve()]
+    monkeypatch.setattr(app.qml_paths, "_distro_qt6_plugin_base_dirs", lambda: list(dict.fromkeys(roots)))
 
 
 def test_merge_puts_pyside_plugins_first() -> None:
