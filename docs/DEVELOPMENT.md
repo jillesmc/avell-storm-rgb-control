@@ -18,7 +18,7 @@
 | Need | For | Check |
 |------|-----|-------|
 | Linux + **libusb** | everything | — |
-| **Python ≥ 3.10** (`.python-version` pins 3.12) | everything | `uv python list` |
+| **Python ≥ 3.12** (`.python-version` pins 3.12) | everything | `uv python list` |
 | **[uv](https://docs.astral.sh/uv/)** | install, run, test | `uv --version` |
 | **udev rule** or root | talking to the devices | `avell-storm-rgb device list` shows them |
 | **Kirigami 6** (+ `qqc2-breeze-style`) from the distro | GUI | `test -d /usr/lib/qt6/qml/org/kde/kirigami` |
@@ -72,7 +72,7 @@ SUBSYSTEM=="usb", ATTR{idVendor}=="048d", ATTR{idProduct}=="7001", MODE="0666"
 > [!WARNING]
 > Several GUI test modules (e.g. `tests/test_gui_pages.py`) import PySide6 at the top. Without the `gui` extra, collection **errors** instead of skipping. Run `make sync-gui` (or `sync-all`) before `make test`.
 
-**CI:** `.github/workflows/tests.yml` runs `uv sync --locked --group dev --extra gui --extra tuya` + `pytest -m "not hardware"` on Python 3.10 and 3.12 (Ubuntu, offscreen, no Kirigami → QML smoke tests skip).
+**CI:** `.github/workflows/tests.yml` runs `uv sync --locked --group dev --extra gui --extra tuya` + `pytest -m "not hardware"` on Python 3.12 and 3.13 (Ubuntu, offscreen, no Kirigami → QML smoke tests skip).
 
 **Releases:** [release-please](https://github.com/googleapis/release-please) (`.github/workflows/release.yml`) reads [Conventional Commits](https://www.conventionalcommits.org/) on `master` (`feat:` → minor, `fix:` → patch, `feat!:` → major) and keeps a release PR open that bumps `pyproject.toml`, `__version__`, `uv.lock` and `CHANGELOG.md`. Merging it tags `vX.Y.Z`, creates the GitHub release and attaches the `uv build` wheel + sdist. Squash-merge PRs with a conventional title.
 

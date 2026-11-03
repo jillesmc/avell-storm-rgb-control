@@ -18,7 +18,7 @@
 | Precisa | Para | Verificar |
 |---------|------|-----------|
 | Linux + **libusb** | tudo | — |
-| **Python ≥ 3.10** (`.python-version` fixa 3.12) | tudo | `uv python list` |
+| **Python ≥ 3.12** (`.python-version` fixa 3.12) | tudo | `uv python list` |
 | **[uv](https://docs.astral.sh/uv/)** | instalar, rodar, testar | `uv --version` |
 | **Regra udev** ou root | falar com os dispositivos | `avell-storm-rgb device list` mostra os dispositivos |
 | **Kirigami 6** (+ `qqc2-breeze-style`) da distro | GUI | `test -d /usr/lib/qt6/qml/org/kde/kirigami` |
@@ -72,7 +72,7 @@ SUBSYSTEM=="usb", ATTR{idVendor}=="048d", ATTR{idProduct}=="7001", MODE="0666"
 > [!WARNING]
 > Vários módulos de teste de GUI (ex.: `tests/test_gui_pages.py`) importam PySide6 no topo. Sem o extra `gui`, a coleta **dá erro** em vez de pular. Rode `make sync-gui` (ou `sync-all`) antes do `make test`.
 
-**CI:** `.github/workflows/tests.yml` roda `uv sync --locked --group dev --extra gui --extra tuya` + `pytest -m "not hardware"` no Python 3.10 e 3.12 (Ubuntu, offscreen, sem Kirigami → os testes de QML pulam).
+**CI:** `.github/workflows/tests.yml` roda `uv sync --locked --group dev --extra gui --extra tuya` + `pytest -m "not hardware"` no Python 3.12 e 3.13 (Ubuntu, offscreen, sem Kirigami → os testes de QML pulam).
 
 **Releases:** o [release-please](https://github.com/googleapis/release-please) (`.github/workflows/release.yml`) lê os [Conventional Commits](https://www.conventionalcommits.org/) do `master` (`feat:` → minor, `fix:` → patch, `feat!:` → major) e mantém aberto um PR de release que sobe a versão em `pyproject.toml`, `__version__`, `uv.lock` e `CHANGELOG.md`. Ao fazer merge dele, sai a tag `vX.Y.Z`, o release no GitHub e o wheel + sdist do `uv build` anexados. Faça squash-merge dos PRs com título convencional.
 
