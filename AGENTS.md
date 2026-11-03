@@ -40,6 +40,8 @@ Source of truth for agents working in this repo. Folder-specific rules live in
   Local keys live only in `tuya_devices.json` (0600) and never reach `state.json`, logs, GUI text, CLI output or errors.
   `devices.bulbs` in `state.json` has the same single writer (`AppFacade`). Startup/refresh only **read** bulbs; nothing turns a light on unasked.
   Tests and docs use only the fictional ids/keys/IPs from `tests/fixtures/tinytuya_devices.json`; never touch real bulbs from tests.
+- **Production vs dev:** the daily app is a release wheel installed with `uv tool`; dev runs (`make run` / `make gui`) set
+  `AVELL_STORM_RGB_CONFIG_DIR` to their own dir. Never point the login autostart at a checkout.
 - Tests must never touch the user's real config: `tests/conftest.py` points `XDG_CONFIG_HOME` at a temp dir; keep it.
 - **No new dependencies** without an explicit request. Add them with `uv add` (optional extras for GUI/screen).
 - Tasks about **CLI / USB / `avell_storm_rgb`**: don't import PySide6 there.

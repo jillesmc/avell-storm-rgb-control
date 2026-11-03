@@ -5,7 +5,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from PySide6.QtCore import QUrl
+from PySide6.QtCore import QSettings, QUrl
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuick import QQuickWindow
 from PySide6.QtWidgets import QApplication
@@ -13,6 +13,7 @@ from PySide6.QtWidgets import QApplication
 from app.logutil import setup_logging, strip_verbose_argv
 from app.qml_paths import add_qml_import_paths, configure_quick_controls_style
 from app.tray import TrayController
+from avell_storm_rgb.application.config_paths import config_dir_override
 from app.ui.adapters.app_facade import AppFacade
 
 
@@ -29,6 +30,9 @@ def main() -> int:
     app.setQuitOnLastWindowClosed(False)
     app.setApplicationName("Avell Storm RGB")
     app.setOrganizationName("avell-storm-rgb")
+    dev_dir = config_dir_override()
+    if dev_dir is not None:  # dev instance: keep UI settings out of the installed app's config
+        QSettings.setPath(QSettings.Format.NativeFormat, QSettings.Scope.UserScope, str(dev_dir))
 
     engine = QQmlApplicationEngine()
     facade = AppFacade(engine)

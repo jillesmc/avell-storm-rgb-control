@@ -8,6 +8,7 @@ import pytest
 @pytest.fixture(autouse=True)
 def _isolated_xdg_config(tmp_path_factory, monkeypatch) -> None:
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path_factory.mktemp("xdg")))
+    monkeypatch.delenv("AVELL_STORM_RGB_CONFIG_DIR", raising=False)
 
 
 @pytest.fixture(autouse=True)
