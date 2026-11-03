@@ -24,7 +24,7 @@ Source of truth for agents working in this repo. Folder-specific rules live in
 
 - **uv only:** `uv sync` (groups/extras from `pyproject.toml`), lockfile `uv.lock`, run with `uv run …`. `Makefile` just wraps uv.
   Never present `pip install` or Poetry as the workflow.
-- **Python:** `requires-python >=3.10` (`.python-version` pins 3.12). Don't claim 3.12 is the minimum.
+- **Python:** `requires-python >=3.12` (`.python-version` pins 3.12). PySide6 6.12 (needed to match the distro Qt for Kirigami) aborts at exit on 3.10/3.11.
 - **Tests:** pytest in `tests/`. Run `make test` (`-m "not hardware"`). GUI tests need `make sync-gui`.
   `pytest-qt` is not a dependency; don't add it without being asked.
 - **Black / Ruff / mypy** are not configured. Don't require them.

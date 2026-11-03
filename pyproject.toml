@@ -7,7 +7,7 @@ name = "avell-storm-rgb"
 version = "0.2.0"
 description = "Unified control for ITE 8291 keyboard RGB and ITE 8233 LED bar (USB)"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 license = "GPL-2.0-or-later"
 authors = [{ name = "Avell Storm RGB contributors" }]
 keywords = ["ITE", "USB", "RGB", "keyboard", "backlight", "LED"]
