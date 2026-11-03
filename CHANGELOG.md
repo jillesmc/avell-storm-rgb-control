@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.3.0](https://github.com/jillesmc/avell-storm-rgb-control/compare/v0.2.1...v0.3.0) (2026-11-03)
+
+
+### Features
+
+* keep development instances apart from the installed app ([12317aa](https://github.com/jillesmc/avell-storm-rgb-control/commit/12317aa432f5faafc8d6af2721a51f7831914bff))
+
+
+### Documentation
+
+* production vs development setup ([1cc53cf](https://github.com/jillesmc/avell-storm-rgb-control/commit/1cc53cf0436d595b2d5b982f5e11910f8138f2b1))
+
 ## [0.2.1](https://github.com/jillesmc/avell-storm-rgb-control/compare/v0.2.0...v0.2.1) (2026-11-03)
 
 
