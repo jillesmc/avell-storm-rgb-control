@@ -18,6 +18,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Literal
 
+from avell_storm_rgb.application.config_paths import app_config_dir
 from avell_storm_rgb.domain.bulb_color import BulbStatus, status_from_dps
 
 __all__ = [
@@ -142,10 +143,8 @@ class AmbiguousTarget(Exception):
 
 
 def default_inventory_path() -> Path:
-    """``$XDG_CONFIG_HOME/avell-storm-rgb/tuya_devices.json``, falling back to ``~/.config``."""
-    base = os.environ.get("XDG_CONFIG_HOME", "")
-    root = Path(base) if base and os.path.isabs(base) else Path.home() / ".config"
-    return root / "avell-storm-rgb" / INVENTORY_FILENAME
+    """``tuya_devices.json`` in :func:`app_config_dir`."""
+    return app_config_dir() / INVENTORY_FILENAME
 
 
 def _fold(text: str) -> str:

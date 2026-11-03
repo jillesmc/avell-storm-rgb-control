@@ -37,6 +37,7 @@ from avell_storm_rgb.infrastructure.usb.ite8291_usb import (
 from avell_storm_rgb.infrastructure.usb.ite8233_usb import LED_BAR_EFFECT_CODES
 
 from app.core import xdg_autostart
+from avell_storm_rgb.application.config_paths import CONFIG_DIR_ENV, config_dir_override
 from app.core.screen_hub import ScreenFrameHub
 from app.ui.adapters.app_state import AppState
 from app.ui.adapters.bulbs_backend import BulbsBackend
@@ -169,6 +170,15 @@ class AppFacade(QObject):
     def launchAtLogin(self, value: bool) -> None:
         enabled = bool(value)
         if enabled == self._launch_at_login:
+            return
+        if enabled and config_dir_override() is not None:
+            # A dev instance must not point the login autostart at a dev checkout.
+            self._settings_error = (
+                "Launch at login is off for development instances "
+                f"({CONFIG_DIR_ENV} is set)."
+            )
+            self.settingsErrorChanged.emit()
+            self.launchAtLoginChanged.emit()
             return
         try:
             if enabled:

@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, Union
 
+from avell_storm_rgb.application.config_paths import app_config_dir
 from avell_storm_rgb.domain.ledbar_colors import MAX_LED_BAR_PALETTE
 from avell_storm_rgb.infrastructure.usb.ite8233_usb import LED_BAR_EFFECT_CODES
 from avell_storm_rgb.infrastructure.usb.ite8291_usb import (
@@ -344,10 +345,8 @@ def state_to_dict(state: DeviceState) -> dict:
 
 
 def default_state_path() -> Path:
-    """``$XDG_CONFIG_HOME/avell-storm-rgb/state.json``, falling back to ``~/.config``."""
-    base = os.environ.get("XDG_CONFIG_HOME", "")
-    root = Path(base) if base and os.path.isabs(base) else Path.home() / ".config"
-    return root / "avell-storm-rgb" / STATE_FILENAME
+    """``state.json`` in :func:`app_config_dir`."""
+    return app_config_dir() / STATE_FILENAME
 
 
 class DeviceStateStore:

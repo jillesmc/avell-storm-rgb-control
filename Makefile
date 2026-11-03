@@ -13,8 +13,8 @@ help:
 	@echo "  make lock         - uv lock"
 	@echo "  make test         - pytest excluding @hardware (QML smoke needs sync-gui)"
 	@echo "  make test-all     - full pytest"
-	@echo "  make run ARGS=... - run CLI (example: make run ARGS='device list')"
-	@echo "  make gui          - run desktop GUI ($(GUI); install with make sync-gui)"
+	@echo "  make run ARGS=... - run CLI with the dev config (example: make run ARGS='device list')"
+	@echo "  make gui          - run desktop GUI with the dev config (DEV_CONFIG=$(DEV_CONFIG))"
 
 sync:
 	@command -v $(UV) >/dev/null || (echo "uv not found"; exit 1)
@@ -38,11 +38,14 @@ test:
 test-all:
 	$(UV) run pytest -q
 
+# Dev runs keep their own config, apart from the installed (production) app.
+DEV_CONFIG ?= $(HOME)/.config/avell-storm-rgb-dev
+
 run:
-	$(UV) run $(CLI) $(ARGS)
+	AVELL_STORM_RGB_CONFIG_DIR=$(DEV_CONFIG) $(UV) run $(CLI) $(ARGS)
 
 gui:
-	$(UV) run $(GUI)
+	AVELL_STORM_RGB_CONFIG_DIR=$(DEV_CONFIG) $(UV) run $(GUI)
 
 clean:
 	rm -rf .pytest_cache build dist *.egg-info
