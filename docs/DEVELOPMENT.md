@@ -74,7 +74,10 @@ SUBSYSTEM=="usb", ATTR{idVendor}=="048d", ATTR{idProduct}=="7001", MODE="0666"
 
 **CI:** `.github/workflows/tests.yml` runs `uv sync --locked --group dev --extra gui --extra tuya` + `pytest -m "not hardware"` on Python 3.12 and 3.13 (Ubuntu, offscreen, no Kirigami → QML smoke tests skip).
 
-**Releases:** [release-please](https://github.com/googleapis/release-please) (`.github/workflows/release.yml`) reads [Conventional Commits](https://www.conventionalcommits.org/) on `master` (`feat:` → minor, `fix:` → patch, `feat!:` → major) and keeps a release PR open that bumps `pyproject.toml`, `__version__`, `uv.lock` and `CHANGELOG.md`. Merging it tags `vX.Y.Z`, creates the GitHub release and attaches the `uv build` wheel + sdist. Squash-merge PRs with a conventional title.
+**Releases:** [release-please](https://github.com/googleapis/release-please) (`.github/workflows/release.yml`) reads [Conventional Commits](https://www.conventionalcommits.org/) on `master` (`feat:` → minor, `fix:` → patch, `feat!:` → major) and keeps a release PR open that bumps `pyproject.toml`, `__version__`, `uv.lock` and `CHANGELOG.md`. Merging it tags `vX.Y.Z`, creates the GitHub release and attaches the `uv build` wheel + sdist.
+
+- Write **each commit** as a Conventional Commit; merge PRs with a normal **merge commit**.
+- Give the PR a **plain title** (not `feat: …`): GitHub puts the PR title in the merge commit body, and release-please would list the change twice.
 
 ### Bulb tests (no hardware, no network)
 
