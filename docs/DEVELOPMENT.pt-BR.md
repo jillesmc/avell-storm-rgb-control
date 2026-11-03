@@ -48,6 +48,24 @@ SUBSYSTEM=="usb", ATTR{idVendor}=="048d", ATTR{idProduct}=="7001", MODE="0666"
 > [!TIP]
 > Ajuste o `idProduct` do teclado para o seu (`6004`, `6006`, `ce00` ou `600b`). `lsusb | grep 048d` mostra qual é.
 
+## 🛠️ Produção vs desenvolvimento
+
+| | Produção (o app do dia a dia) | Desenvolvimento |
+|---|---|---|
+| Código | um **wheel de release**, instalado com `uv tool` | este checkout / worktrees |
+| Comandos | `~/.local/bin/avell-storm-rgb[-gui]` (o autostart aponta aqui) | `make run`, `make gui` |
+| Config | `~/.config/avell-storm-rgb/` | `~/.config/avell-storm-rgb-dev/` (`DEV_CONFIG`) |
+
+Instalar ou atualizar a produção para uma release (fixe o PySide6 na versão menor do Qt da distro para o Kirigami carregar):
+
+```bash
+uv tool install --force --python 3.12 --with "PySide6==6.12.*" \
+  "avell-storm-rgb[gui,tuya,screen] @ https://github.com/jillesmc/avell-storm-rgb-control/releases/download/vX.Y.Z/avell_storm_rgb-X.Y.Z-py3-none-any.whl"
+```
+
+> [!WARNING]
+> Só um app controla o teclado por vez. Feche o app de produção (bandeja → Quit) antes do `make gui`.
+
 ## 🛠️ Testes
 
 | Arquivo | Cobre |
@@ -96,6 +114,7 @@ SUBSYSTEM=="usb", ATTR{idVendor}=="048d", ATTR{idProduct}=="7001", MODE="0666"
 |------|--------|
 | `--verbose` / `--debug` / `-v` (GUI) | Log em DEBUG + tracebacks completos das tarefas USB que falharem |
 | `AVELL_STORM_RGB_LOG=debug` | O mesmo, via ambiente |
+| `AVELL_STORM_RGB_CONFIG_DIR=<pasta>` | Pasta de config do `state.json`, do inventário de lâmpadas e das preferências da UI (o `make run` / `make gui` define); iniciar no login fica bloqueado |
 | `AVELL_DEBUG_FIRMWARE_UI=1` | Loga a agitação da aba de firmware (pedidos de apply, mudanças de largura do layout) |
 | `AVELL_RGB_QQC2_STYLE=<estilo>` | Força um estilo do Qt Quick Controls (debug) |
 | `QT_QUICK_CONTROLS_STYLE` | Respeitado quando a sessão define |
