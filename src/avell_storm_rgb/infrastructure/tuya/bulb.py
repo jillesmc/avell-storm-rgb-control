@@ -51,10 +51,15 @@ DEFAULT_PROTOCOL = "3.3"
 # tinytuya error codes (core/error_helper.py). Err is a *string* in its dicts.
 ERR_KEY_OR_PROTOCOL = 914
 ERR_UNREACHABLE = frozenset({901, 902, 905})
+ERR_UNEXPECTED_PAYLOAD = 904
 
 MSG_KEY_REJECTED = "local key or protocol rejected"
 MSG_UNREACHABLE = "bulb is not reachable"
 MSG_FAILED = "bulb command failed"
+MSG_UNEXPECTED_REPLY = (
+    "unexpected reply from the bulb: its local key may have changed "
+    "(re-pairing creates a new one); update devices.json and re-import it"
+)
 
 _NO_RESULT = object()
 
@@ -323,7 +328,7 @@ class TuyaBulb:
             _LOG.debug("bulb %s: %s did not answer (Err %s)", self._id, label, err)
             raise BulbUnreachable(MSG_UNREACHABLE)
         _LOG.debug("bulb %s: %s failed (Err %s)", self._id, label, err)
-        raise BulbError(MSG_FAILED)
+        raise BulbError(MSG_UNEXPECTED_REPLY if err == ERR_UNEXPECTED_PAYLOAD else MSG_FAILED)
 
     def _invoke(
         self,

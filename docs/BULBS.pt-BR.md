@@ -108,6 +108,7 @@ Na página da lâmpada, **Follow** = None / Keyboard / Screen / LED bar. Só apa
 |----------|----------|
 | Lâmpada fora da rede | `Escritório is not reachable on the network. Check that it is powered; discovery uses UDP 6666/6667.` |
 | Chave ou protocolo errados | `Escritório rejected the local key or protocol — re-import devices.json` |
+| Chave mudou (por exemplo, depois de parear a lâmpada de novo) | `Escritório: unexpected reply from the bulb: its local key may have changed (re-pairing creates a new one); update devices.json and re-import it` |
 | Inventário corrompido | `error: bulb inventory is unreadable (<reason>): <path>` |
 
 Os ids, chaves, MACs e IPs desta página são fictícios.
