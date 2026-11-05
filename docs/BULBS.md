@@ -108,6 +108,7 @@ On the bulb page, **Follow** = None / Keyboard / Screen / LED bar. Only sources 
 |-----------|---------|
 | Bulb off the network | `Escritório is not reachable on the network. Check that it is powered; discovery uses UDP 6666/6667.` |
 | Wrong key or protocol | `Escritório rejected the local key or protocol — re-import devices.json` |
+| Key changed (for example after re-pairing the bulb) | `Escritório: unexpected reply from the bulb: its local key may have changed (re-pairing creates a new one); update devices.json and re-import it` |
 | Inventory corrupt | `error: bulb inventory is unreadable (<reason>): <path>` |
 
 Ids, keys, MACs and IPs on this page are fictional.

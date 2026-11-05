@@ -259,7 +259,29 @@ def test_unreachable_error_codes_map_to_bulb_unreachable(name: str, code: int) -
 
 
 @pytest.mark.parametrize("name", sorted(CALLS))
-@pytest.mark.parametrize("code", [900, 903, 904, 906, 913])
+def test_unexpected_payload_suggests_a_changed_key(name: str) -> None:
+    """Hardware: a re-paired bulb answers the old key with Err 904, not 914. It stays a plain
+    BulbError because 904 can also be a one-off bad reply, so the hint says "may"."""
+    device = StubBulbDevice(
+        error={"Err": "904", "Error": SENTINEL_ERROR, "Payload": SENTINEL_PAYLOAD}
+    )
+
+    with pytest.raises(BulbError) as exc:
+        CALLS[name](_bulb(device))
+
+    assert type(exc.value) is BulbError
+    message = str(exc.value)
+    assert message == (
+        "unexpected reply from the bulb: its local key may have changed "
+        "(re-pairing creates a new one); update devices.json and re-import it"
+    )
+    assert SENTINEL_ERROR not in message
+    assert SENTINEL_PAYLOAD not in message
+    assert KEY not in message
+
+
+@pytest.mark.parametrize("name", sorted(CALLS))
+@pytest.mark.parametrize("code", [900, 903, 906, 913])
 def test_other_error_codes_map_to_bulb_error(name: str, code: int) -> None:
     device = StubBulbDevice(
         error={"Err": code, "Error": SENTINEL_ERROR, "Payload": SENTINEL_PAYLOAD}
