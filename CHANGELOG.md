@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/jillesmc/avell-storm-rgb-control/compare/v0.3.0...v0.3.1) (2026-11-05)
+
+
+### Bug Fixes
+
+* suggest a changed local key when a bulb answers Err 904 ([c7ccff7](https://github.com/jillesmc/avell-storm-rgb-control/commit/c7ccff7630c8958c8307fd65a51675420f8c0be3))
+
 ## [0.3.0](https://github.com/jillesmc/avell-storm-rgb-control/compare/v0.2.1...v0.3.0) (2026-11-03)
 
 
